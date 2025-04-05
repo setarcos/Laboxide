@@ -1,20 +1,21 @@
 // src/main.rs
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpServer, web, cookie::Key};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
-use actix_web::cookie::Key;
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
-use crate::config::Config; // Ensure this is available in main
+use crate::config::{Config, PERMISSION_ADMIN};
+use crate::middleware::CheckPermission;
 
 mod db;
 mod models;
 mod config;
 mod handler;
+mod middleware;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize the logger
-    std::env::set_var("RUST_LOG", "actix_web=info");
+    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
     // Initialize the configuration (e.g., secret token)
@@ -36,7 +37,11 @@ async fn main() -> std::io::Result<()> {
                 secret_key.clone(),
             ))
             .configure(init_auth_routes) // Register authentication routes
-            .configure(init_user_routes)
+            .service(
+                web::scope("/admin")
+                .wrap(CheckPermission::new(PERMISSION_ADMIN))
+                .configure(init_user_routes)
+            )
     })
     .bind("127.0.0.1:8080")?
     .run()

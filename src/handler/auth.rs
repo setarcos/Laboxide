@@ -3,8 +3,7 @@ use actix_web::{get, HttpResponse, Responder, web};
 use actix_session::Session;
 use serde_json::json;
 use crate::db;
-use crate::models::User;
-use crate::config::{Config, PERMISSION_ADMIN};
+use crate::config::{Config};
 
 #[derive(serde::Deserialize)]
 pub struct LoginQuery {
