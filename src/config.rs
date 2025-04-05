@@ -17,10 +17,12 @@ impl Config {
 
         let database_url = env::var("DATABASE_URL")
             .expect("DATABASE_URL must be set in .env file");
+        let token_secret = env::var("TOKEN_SECRET")
+            .unwrap_or_else(|_| "mysecret".to_string());
 
         Config {
             database_url,
-            token_secret: "mysecret".to_string(),
+            token_secret,
         }
     }
 }
