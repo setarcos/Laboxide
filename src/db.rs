@@ -1,5 +1,5 @@
 use sqlx::{Pool, Sqlite, SqlitePool};
-use crate::models::User;
+use crate::models::{User, Semester};
 use crate::config::Config;
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
@@ -74,3 +74,76 @@ pub async fn list_users(pool: &SqlitePool) -> Result<Vec<User>, sqlx::Error> {
 
     Ok(users)
 }
+
+pub async fn create_semester(pool: &SqlitePool, semester: Semester) -> Result<Semester, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Semester,
+        r#"
+        INSERT INTO semesters (name, start, end)
+        VALUES (?1, ?2, ?3)
+        RETURNING id, name, start, end
+        "#,
+        semester.name,
+        semester.start,
+        semester.end
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn get_all_semesters(pool: &SqlitePool) -> Result<Vec<Semester>, sqlx::Error> {
+    let semesters = sqlx::query_as!(
+        Semester,
+        r#"SELECT id, name, start, end FROM semesters"#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(semesters)
+}
+
+pub async fn get_semester_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Semester>, sqlx::Error> {
+    let semester = sqlx::query_as!(
+        Semester,
+        r#"SELECT id, name, start, end FROM semesters WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(semester)
+}
+
+pub async fn update_semester(pool: &SqlitePool, id: i64, semester: Semester) -> Result<Option<Semester>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Semester,
+        r#"
+        UPDATE semesters
+        SET name = ?1, start = ?2, end = ?3
+        WHERE id = ?4
+        RETURNING id, name, start, end
+        "#,
+        semester.name,
+        semester.start,
+        semester.end,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_semester(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"DELETE FROM semesters WHERE id = ?"#,
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+

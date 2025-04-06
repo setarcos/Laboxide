@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS users (
+    user_id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    permission INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS semesters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    start DATE NOT NULL,
+    end DATE NOT NULL
+);

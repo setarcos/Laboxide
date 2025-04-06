@@ -1,4 +1,4 @@
 .env
 target
 *.db
-*.db-wal
+*.db-*
