@@ -39,8 +39,6 @@ pub async fn add_user(pool: &Pool<Sqlite>, user: &User) -> Result<(), sqlx::Erro
     .execute(pool)
     .await?;
 
-    println!("{:?}", &user.user_id);
-
     Ok(())
 }
 
@@ -70,12 +68,7 @@ pub async fn delete_user(pool: &Pool<Sqlite>, user_id: &str) -> Result<(), sqlx:
 
 pub async fn list_users(pool: &SqlitePool) -> Result<Vec<User>, sqlx::Error> {
     let users = sqlx::query_as_unchecked!(
-        User,
-        r#"
-        SELECT user_id, username, permission
-        FROM users
-        "#
-    )
+        User, "SELECT user_id, username, permission FROM users")
     .fetch_all(pool)
     .await?;
 
