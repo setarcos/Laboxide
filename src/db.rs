@@ -4,20 +4,11 @@ use crate::config::Config;
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS users (
-            user_id TEXT PRIMARY KEY,
-            username TEXT NOT NULL,
-            permission INTEGER NOT NULL
-        )"
-    )
-    .execute(&pool)
-    .await?;
     Ok(pool)
 }
 
 pub async fn get_user_by_id(pool: &Pool<Sqlite>, user_id: &str) -> Result<Option<User>, sqlx::Error> {
-    let user = sqlx::query_as_unchecked!(
+    let user = sqlx::query_as!(
         User,
         "SELECT user_id, username, permission FROM users WHERE user_id = ?",
         user_id
@@ -29,45 +20,52 @@ pub async fn get_user_by_id(pool: &Pool<Sqlite>, user_id: &str) -> Result<Option
 }
 
 // Add user
-pub async fn add_user(pool: &Pool<Sqlite>, user: &User) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        "INSERT INTO users (user_id, username, permission) VALUES (?1, ?2, ?3)"
+pub async fn add_user(pool: &Pool<Sqlite>, user: User) -> Result<User, sqlx::Error> {
+    let rec = sqlx::query_as!(User,
+        r#"INSERT INTO users (user_id, username, permission)
+        VALUES (?1, ?2, ?3)
+        RETURNING user_id, username, permission
+        "#,
+        user.user_id,
+        user.username,
+        user.permission
     )
-    .bind(&user.user_id)
-    .bind(&user.username)
-    .bind(user.permission)
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
 
-    Ok(())
+    Ok(rec)
 }
 
 // Update user
-pub async fn update_user(pool: &Pool<Sqlite>, user: &User) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        "UPDATE users SET username = ?2, permission = ?3 WHERE user_id = ?1"
+pub async fn update_user(pool: &Pool<Sqlite>, user: User) -> Result<Option<User>, sqlx::Error> {
+    let rec = sqlx::query_as!(User,
+        r#"UPDATE users SET username = ?2, permission = ?3
+        WHERE user_id = ?1
+        RETURNING user_id, username, permission"#,
+        user.user_id,
+        user.username,
+        user.permission
     )
-    .bind(&user.user_id)
-    .bind(&user.username)
-    .bind(user.permission)
-    .execute(pool)
+    .fetch_optional(pool)
     .await?;
 
-    Ok(())
+    Ok(rec)
 }
 
 // Delete user
-pub async fn delete_user(pool: &Pool<Sqlite>, user_id: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM users WHERE user_id = ?")
-        .bind(user_id)
-        .execute(pool)
-        .await?;
+pub async fn delete_user(pool: &Pool<Sqlite>, user_id: &str) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM users WHERE user_id = ?",
+        user_id
+    )
+    .execute(pool)
+    .await?;
 
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn list_users(pool: &SqlitePool) -> Result<Vec<User>, sqlx::Error> {
-    let users = sqlx::query_as_unchecked!(
+    let users = sqlx::query_as!(
         User, "SELECT user_id, username, permission FROM users")
     .fetch_all(pool)
     .await?;
@@ -75,9 +73,8 @@ pub async fn list_users(pool: &SqlitePool) -> Result<Vec<User>, sqlx::Error> {
     Ok(users)
 }
 
-pub async fn create_semester(pool: &SqlitePool, semester: Semester) -> Result<Semester, sqlx::Error> {
-    let rec = sqlx::query_as!(
-        Semester,
+pub async fn add_semester(pool: &SqlitePool, semester: Semester) -> Result<Semester, sqlx::Error> {
+    let rec = sqlx::query_as!(Semester,
         r#"
         INSERT INTO semesters (name, start, end)
         VALUES (?1, ?2, ?3)
@@ -93,7 +90,7 @@ pub async fn create_semester(pool: &SqlitePool, semester: Semester) -> Result<Se
     Ok(rec)
 }
 
-pub async fn get_all_semesters(pool: &SqlitePool) -> Result<Vec<Semester>, sqlx::Error> {
+pub async fn list_semesters(pool: &SqlitePool) -> Result<Vec<Semester>, sqlx::Error> {
     let semesters = sqlx::query_as!(
         Semester,
         r#"SELECT id, name, start, end FROM semesters"#
@@ -138,7 +135,7 @@ pub async fn update_semester(pool: &SqlitePool, id: i64, semester: Semester) -> 
 
 pub async fn delete_semester(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
     let result = sqlx::query!(
-        r#"DELETE FROM semesters WHERE id = ?"#,
+        "DELETE FROM semesters WHERE id = ?",
         id
     )
     .execute(pool)

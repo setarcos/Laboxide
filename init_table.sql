@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     username TEXT NOT NULL,
-    permission INTEGER NOT NULL
+    permission INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS semesters (

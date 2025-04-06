@@ -8,17 +8,12 @@ use crate::db;
 #[post("/user")]
 pub async fn create_user(
     db_pool: web::Data<SqlitePool>,
-    user_data: web::Json<User>,
+    item: web::Json<User>,
 ) -> impl Responder {
-    let user = User {
-        user_id: user_data.user_id.clone(),
-        username: user_data.username.clone(),
-        permission: user_data.permission,
-    };
 
-    match db::add_user(&db_pool, &user).await {
-        Ok(_) => HttpResponse::Created().json(json!({ "data": user })),
-        Err(_) => HttpResponse::InternalServerError().json(json!({ "error": "Failed to create user" })),
+    match db::add_user(&db_pool, item.into_inner()).await {
+        Ok(user) => HttpResponse::Created().json(user),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
@@ -31,7 +26,7 @@ pub async fn get_user(
     match db::get_user_by_id(&db_pool, &user_id).await {
         Ok(Some(user)) => HttpResponse::Ok().json(json!({ "data": user })),
         Ok(None) => HttpResponse::NotFound().json(json!({ "error": "User not found" })),
-        Err(_) => HttpResponse::InternalServerError().json(json!({ "error": "Failed to fetch user" })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
@@ -41,25 +36,21 @@ pub async fn list_users(
 ) -> impl Responder {
     match db::list_users(&db_pool).await {
         Ok(users) => HttpResponse::Ok().json(json!({ "data": users })),
-        Err(_) => HttpResponse::InternalServerError().json(json!({ "error": "Failed to list users" })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
 #[put("/user/{user_id}")]
 pub async fn update_user(
     db_pool: web::Data<SqlitePool>,
-    path: web::Path<String>,
-    updated: web::Json<User>,
+    _path: web::Path<String>,
+    item: web::Json<User>,
 ) -> impl Responder {
-    let user = User {
-        user_id: path.into_inner(),
-        username: updated.username.clone(),
-        permission: updated.permission,
-    };
 
-    match db::update_user(&db_pool, &user).await {
-        Ok(_) => HttpResponse::Ok().json(json!({ "data": user })),
-        Err(_) => HttpResponse::InternalServerError().json(json!({ "error": "Failed to update user" })),
+    // {user_id} is ignored, assume the same with the posted data.
+    match db::update_user(&db_pool, item.into_inner()).await {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
@@ -70,7 +61,8 @@ pub async fn delete_user(
 ) -> impl Responder {
     let user_id = path.into_inner();
     match db::delete_user(&db_pool, &user_id).await {
-        Ok(_) => HttpResponse::Ok().json(json!({ "message": "User deleted" })),
+        Ok(true) => HttpResponse::Ok().json(json!({ "message": "User deleted" })),
+        Ok(false) => HttpResponse::NotFound().json(json!({ "error": "User not found" })),
         Err(_) => HttpResponse::InternalServerError().json(json!({ "error": "Failed to delete user" })),
     }
 }

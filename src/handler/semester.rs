@@ -1,4 +1,5 @@
 use actix_web::{get, post, put, delete, web, HttpResponse, Responder};
+use serde_json::json;
 use sqlx::SqlitePool;
 
 use crate::db;
@@ -9,9 +10,9 @@ pub async fn create_semester(
     db_pool: web::Data<SqlitePool>,
     item: web::Json<Semester>,
 ) -> impl Responder {
-    match db::create_semester(&db_pool, item.into_inner()).await {
+    match db::add_semester(&db_pool, item.into_inner()).await {
         Ok(semester) => HttpResponse::Ok().json(semester),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
@@ -19,22 +20,22 @@ pub async fn create_semester(
 pub async fn list_semesters(
     db_pool: web::Data<SqlitePool>,
 ) -> impl Responder {
-    match db::get_all_semesters(&db_pool).await {
+    match db::list_semesters(&db_pool).await {
         Ok(semesters) => HttpResponse::Ok().json(semesters),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
 #[get("/semester/{id}")]
-pub async fn get_semester_by_id(
+pub async fn get_semester(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
 ) -> impl Responder {
     let id = path.into_inner();
     match db::get_semester_by_id(&db_pool, id).await {
         Ok(Some(semester)) => HttpResponse::Ok().json(semester),
-        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({ "error": "Semester not found" })),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Semester not found" })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
@@ -47,8 +48,8 @@ pub async fn update_semester(
     let id = path.into_inner();
     match db::update_semester(&db_pool, id, item.into_inner()).await {
         Ok(Some(semester)) => HttpResponse::Ok().json(semester),
-        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({ "error": "Semester not found" })),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Semester not found" })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
@@ -59,15 +60,15 @@ pub async fn delete_semester(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::delete_semester(&db_pool, id).await {
-        Ok(true) => HttpResponse::Ok().json(serde_json::json!({ "message": "Semester deleted" })),
-        Ok(false) => HttpResponse::NotFound().json(serde_json::json!({ "error": "Semester not found" })),
-        Err(_) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": "Failed to delete semester" })),
+        Ok(true) => HttpResponse::Ok().json(json!({ "message": "Semester deleted" })),
+        Ok(false) => HttpResponse::NotFound().json(json!({ "error": "Semester not found" })),
+        Err(_) => HttpResponse::InternalServerError().json(json!({ "error": "Failed to delete semester" })),
     }
 }
 
 pub fn init_semester_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_semester)
-        .service(get_semester_by_id)
+        .service(get_semester)
         .service(list_semesters)
         .service(update_semester)
         .service(delete_semester);
