@@ -1,27 +1,14 @@
 use actix_web::{delete, get, post, put, web, HttpResponse, Responder};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 
 use crate::models::User;
 use crate::db;
 
-#[derive(Deserialize)]
-pub struct UserData {
-    pub user_id: String,
-    pub username: String,
-    pub permission: i64,
-}
-
-#[derive(Serialize)]
-pub struct ApiResponse<T> {
-    pub data: T,
-}
-
 #[post("/user")]
 pub async fn create_user(
     db_pool: web::Data<SqlitePool>,
-    user_data: web::Json<UserData>,
+    user_data: web::Json<User>,
 ) -> impl Responder {
     let user = User {
         user_id: user_data.user_id.clone(),
@@ -62,7 +49,7 @@ pub async fn list_users(
 pub async fn update_user(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<String>,
-    updated: web::Json<UserData>,
+    updated: web::Json<User>,
 ) -> impl Responder {
     let user = User {
         user_id: path.into_inner(),
