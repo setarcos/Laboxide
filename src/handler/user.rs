@@ -30,7 +30,7 @@ pub async fn get_user(
     }
 }
 
-#[get("/users")]
+#[get("/user")]
 pub async fn list_users(
     db_pool: web::Data<SqlitePool>,
 ) -> impl Responder {
@@ -40,14 +40,12 @@ pub async fn list_users(
     }
 }
 
-#[put("/user/{user_id}")]
+#[put("/user")]
 pub async fn update_user(
     db_pool: web::Data<SqlitePool>,
-    _path: web::Path<String>,
     item: web::Json<User>,
 ) -> impl Responder {
 
-    // {user_id} is ignored, assume the same with the posted data.
     match db::update_user(&db_pool, item.into_inner()).await {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
