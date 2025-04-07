@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-    user_id TEXT PRIMARY KEY,
+    user_id TEXT PRIMARY KEY NOT NULL,
     username TEXT NOT NULL,
     permission INTEGER NOT NULL DEFAULT 0
 );
