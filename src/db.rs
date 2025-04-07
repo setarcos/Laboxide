@@ -1,5 +1,5 @@
 use sqlx::{Pool, Sqlite, SqlitePool};
-use crate::models::{User, Semester, Course};
+use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
@@ -7,6 +7,7 @@ pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     Ok(pool)
 }
 
+// Db operation for User
 pub async fn get_user_by_id(pool: &Pool<Sqlite>, user_id: &str) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
@@ -73,6 +74,7 @@ pub async fn list_users(pool: &SqlitePool) -> Result<Vec<User>, sqlx::Error> {
     Ok(users)
 }
 
+// Db operation for Semester
 pub async fn add_semester(pool: &SqlitePool, semester: Semester) -> Result<Semester, sqlx::Error> {
     let rec = sqlx::query_as!(Semester,
         r#"
@@ -219,6 +221,79 @@ pub async fn update_course(pool: &SqlitePool, id: i64, course: Course) -> Result
 pub async fn delete_course(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
     let result = sqlx::query!(
         "DELETE FROM courses WHERE id = ?",
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+// Db operation for Labroom
+pub async fn add_labroom(pool: &SqlitePool, labroom: Labroom) -> Result<Labroom, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Labroom,
+        r#"
+        INSERT INTO labrooms (room, name, manager)
+        VALUES (?1, ?2, ?3)
+        RETURNING id, room, name, manager
+        "#,
+        labroom.room,
+        labroom.name,
+        labroom.manager
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_labrooms(pool: &SqlitePool) -> Result<Vec<Labroom>, sqlx::Error> {
+    let labrooms = sqlx::query_as!(
+        Labroom,
+        r#"SELECT id, room, name, manager FROM labrooms"#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(labrooms)
+}
+
+pub async fn get_labroom_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Labroom>, sqlx::Error> {
+    let labroom = sqlx::query_as!(
+        Labroom,
+        r#"SELECT id, room, name, manager FROM labrooms WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(labroom)
+}
+
+pub async fn update_labroom(pool: &SqlitePool, id: i64, labroom: Labroom) -> Result<Option<Labroom>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Labroom,
+        r#"
+        UPDATE labrooms
+        SET room = ?1, name = ?2, manager = ?3
+        WHERE id = ?4
+        RETURNING id, room, name, manager
+        "#,
+        labroom.room,
+        labroom.name,
+        labroom.manager,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_labroom(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM labrooms WHERE id = ?",
         id
     )
     .execute(pool)

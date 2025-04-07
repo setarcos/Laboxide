@@ -28,3 +28,11 @@ pub struct Course{
     pub mailbox: String,
     pub term: i64,
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Labroom{
+    pub id: i64,
+    pub room: String,
+    pub name: String,
+    pub manager: String,
+}

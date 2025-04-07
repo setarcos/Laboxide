@@ -22,3 +22,10 @@ CREATE TABLE IF NOT EXISTS courses (
     mailbox VARCHAR(200) NOT NULL,
     term INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS labrooms (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    room VARCHAR(10) NOT NULL,
+    name VARCHAR(30) NOT NULL,
+    manager VARCHAR(10) NOT NULL
+);
