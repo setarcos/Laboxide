@@ -10,3 +10,15 @@ CREATE TABLE IF NOT EXISTS semesters (
     start DATE NOT NULL,
     end DATE NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS courses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL,
+    ename VARCHAR(200) NOT NULL,
+    code VARCHAR(20) NOT NULL,
+    tea_id VARCHAR(10) NOT NULL,
+    tea_name VARCHAR(50) NOT NULL,
+    intro TEXT NOT NULL,
+    mailbox VARCHAR(200) NOT NULL,
+    term INTEGER NOT NULL
+);

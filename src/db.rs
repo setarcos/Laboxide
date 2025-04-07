@@ -1,5 +1,5 @@
 use sqlx::{Pool, Sqlite, SqlitePool};
-use crate::models::{User, Semester};
+use crate::models::{User, Semester, Course};
 use crate::config::Config;
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
@@ -144,3 +144,85 @@ pub async fn delete_semester(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::E
     Ok(result.rows_affected() > 0)
 }
 
+pub async fn add_course(pool: &SqlitePool, course: Course) -> Result<Course, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Course,
+        r#"
+        INSERT INTO courses (id, name, ename, code, tea_id, tea_name, intro, mailbox, term)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        RETURNING id, name, ename, code, tea_id, tea_name, intro, mailbox, term
+        "#,
+        course.id,
+        course.name,
+        course.ename,
+        course.code,
+        course.tea_id,
+        course.tea_name,
+        course.intro,
+        course.mailbox,
+        course.term
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_courses(pool: &SqlitePool) -> Result<Vec<Course>, sqlx::Error> {
+    let courses = sqlx::query_as!(
+        Course,
+        r#"SELECT id, name, ename, code, tea_id, tea_name, intro, mailbox, term FROM courses"#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(courses)
+}
+
+pub async fn get_course_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Course>, sqlx::Error> {
+    let course = sqlx::query_as!(
+        Course,
+        r#"SELECT id, name, ename, code, tea_id, tea_name, intro, mailbox, term FROM courses WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(course)
+}
+
+pub async fn update_course(pool: &SqlitePool, id: i64, course: Course) -> Result<Option<Course>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Course,
+        r#"
+        UPDATE courses
+        SET name = ?1, ename = ?2, code = ?3, tea_id = ?4, tea_name = ?5, intro = ?6, mailbox = ?7, term = ?8
+        WHERE id = ?9
+        RETURNING id, name, ename, code, tea_id, tea_name, intro, mailbox, term
+        "#,
+        course.name,
+        course.ename,
+        course.code,
+        course.tea_id,
+        course.tea_name,
+        course.intro,
+        course.mailbox,
+        course.term,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_course(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM courses WHERE id = ?",
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}

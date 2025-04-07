@@ -4,6 +4,7 @@ use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
 use crate::handler::semester::init_semester_routes;
+use crate::handler::course::init_course_routes;
 use crate::config::{Config, PERMISSION_ADMIN};
 use crate::middleware::CheckPermission;
 
@@ -43,6 +44,7 @@ async fn main() -> std::io::Result<()> {
                 .wrap(CheckPermission::new(PERMISSION_ADMIN))
                 .configure(init_user_routes)
                 .configure(init_semester_routes)
+                .configure(init_course_routes)
             )
     })
     .bind("127.0.0.1:8080")?
