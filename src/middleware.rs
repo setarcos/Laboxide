@@ -67,7 +67,7 @@ where
                 // User does not have admin permission, return Forbidden response
                 let (request, _pl) = request.into_parts();
                 let response = HttpResponse::Forbidden()
-                    .json(json!({"Forbidden": "Admin permission required"}))
+                    .json(json!({"Forbidden": "Permission denied!"}))
                     .map_into_right_body();
 
                 Box::pin(async { Ok(ServiceResponse::new(request, response)) })

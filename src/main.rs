@@ -4,8 +4,9 @@ use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
 use crate::handler::semester::init_semester_routes;
-use crate::handler::course::init_course_routes;
-use crate::config::{Config, PERMISSION_ADMIN};
+use crate::handler::course::init_course_adminroutes;
+use crate::handler::course::{list_courses, get_course, update_course};
+use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER};
 use crate::middleware::CheckPermission;
 
 mod db;
@@ -39,12 +40,19 @@ async fn main() -> std::io::Result<()> {
                 secret_key.clone(),
             ))
             .configure(init_auth_routes) // Register authentication routes
+            .service(list_courses)
+            .service(get_course)
             .service(
                 web::scope("/admin")
                 .wrap(CheckPermission::new(PERMISSION_ADMIN))
                 .configure(init_user_routes)
                 .configure(init_semester_routes)
-                .configure(init_course_routes)
+                .configure(init_course_adminroutes)
+            )
+            .service(
+                web::scope("/stuff")
+                .wrap(CheckPermission::new(PERMISSION_TEACHER))
+                .service(update_course)
             )
     })
     .bind("127.0.0.1:8080")?

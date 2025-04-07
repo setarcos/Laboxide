@@ -1,7 +1,9 @@
 use actix_web::{get, post, put, delete, web, HttpResponse, Responder};
 use serde_json::json;
 use sqlx::SqlitePool;
+use actix_session::Session;
 
+use crate::config::{PERMISSION_ADMIN, PERMISSION_TEACHER};
 use crate::db;
 use crate::models::Course;
 
@@ -44,10 +46,27 @@ pub async fn update_course(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
     item: web::Json<Course>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
-    match db::update_course(&db_pool, id, item.into_inner()).await {
-        Ok(Some(course)) => HttpResponse::Ok().json(course),
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
+    let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or("".to_string());
+
+    match db::get_course_by_id(&db_pool, id).await {
+        Ok(Some(course)) => {
+            // Check if the user has permission to update the course
+            if permission & PERMISSION_ADMIN != 0 || (permission & PERMISSION_TEACHER != 0 && course.tea_id == user_id) {
+                // Proceed with update if authorized
+                match db::update_course(&db_pool, id, item.into_inner()).await {
+                    Ok(Some(course)) => HttpResponse::Ok().json(course),
+                    Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course not found" })),
+                    Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+                }
+            } else {
+                // Deny access if the user is not authorized
+                HttpResponse::Forbidden().json(json!({ "error": "Permission denied!" }))
+            }
+        }
         Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
@@ -66,10 +85,8 @@ pub async fn delete_course(
     }
 }
 
-pub fn init_course_routes(cfg: &mut web::ServiceConfig) {
+pub fn init_course_adminroutes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_course)
-        .service(get_course)
-        .service(list_courses)
         .service(update_course)
         .service(delete_course);
 }
