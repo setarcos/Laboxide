@@ -1,5 +1,5 @@
 // src/main.rs
-use actix_web::{App, HttpServer, web, cookie::Key};
+use actix_web::{App, HttpServer, web, cookie::Key, middleware::Logger};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
@@ -10,7 +10,6 @@ use crate::handler::labroom::init_labroom_adminroutes;
 use crate::handler::labroom::list_labrooms;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER};
 use crate::middleware::CheckPermission;
-
 mod db;
 mod models;
 mod config;
@@ -37,6 +36,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(db_pool.clone()))
+            .wrap(Logger::default())
             .wrap(SessionMiddleware::new(
                 CookieSessionStore::default(),
                 secret_key.clone(),
