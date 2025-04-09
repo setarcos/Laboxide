@@ -24,7 +24,7 @@ pub async fn get_user(
 ) -> impl Responder {
     let user_id = path.into_inner();
     match db::get_user_by_id(&db_pool, &user_id).await {
-        Ok(Some(user)) => HttpResponse::Ok().json(json!({ "data": user })),
+        Ok(Some(user)) => HttpResponse::Ok().json(json!( user )),
         Ok(None) => HttpResponse::NotFound().json(json!({ "error": "User not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
@@ -35,7 +35,7 @@ pub async fn list_users(
     db_pool: web::Data<SqlitePool>,
 ) -> impl Responder {
     match db::list_users(&db_pool).await {
-        Ok(users) => HttpResponse::Ok().json(json!({ "data": users })),
+        Ok(users) => HttpResponse::Ok().json(json!(users)),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }

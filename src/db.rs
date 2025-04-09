@@ -150,11 +150,10 @@ pub async fn add_course(pool: &SqlitePool, course: Course) -> Result<Course, sql
     let rec = sqlx::query_as!(
         Course,
         r#"
-        INSERT INTO courses (id, name, ename, code, tea_id, tea_name, intro, mailbox, term)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        INSERT INTO courses (name, ename, code, tea_id, tea_name, intro, mailbox, term)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         RETURNING id, name, ename, code, tea_id, tea_name, intro, mailbox, term
         "#,
-        course.id,
         course.name,
         course.ename,
         course.code,
