@@ -57,7 +57,16 @@ pub async fn update_course(
             // Check if the user has permission to update the course
             if permission & PERMISSION_ADMIN != 0 || (permission & PERMISSION_TEACHER != 0 && course.tea_id == user_id) {
                 // Proceed with update if authorized
-                match db::update_course(&db_pool, id, item.into_inner()).await {
+                let mut newcourse = item.into_inner();
+                if permission & PERMISSION_ADMIN == 0 {
+                    // teacher can only change intro, tea_name and email
+                    newcourse.tea_id = course.tea_id;
+                    newcourse.name = course.name;
+                    newcourse.ename = course.ename;
+                    newcourse.code = course.code;
+                    newcourse.term = course.term;
+                }
+                match db::update_course(&db_pool, id, newcourse).await {
                     Ok(Some(course)) => HttpResponse::Ok().json(course),
                     Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course not found" })),
                     Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
