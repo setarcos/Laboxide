@@ -24,8 +24,19 @@ CREATE TABLE IF NOT EXISTS courses (
 );
 
 CREATE TABLE IF NOT EXISTS labrooms (
-    id integer PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     room VARCHAR(10) NOT NULL,
     name VARCHAR(30) NOT NULL,
     manager VARCHAR(10) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS subcourses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    weekday INTEGER NOT NULL,
+    room_id INTEGER NOT NULL REFERENCES labrooms (id),
+    tea_name VARCHAR(10) NOT NULL,
+    year_id INTEGER NOT NULL REFERENCES semesters (id),
+    stu_limit INTEGER NOT NULL,
+    course_id INTEGER NOT NULL REFERENCES courses (id),
+    lag_week INTEGER NOT NULL
 );

@@ -1,13 +1,14 @@
 // src/main.rs
 use actix_web::{App, HttpServer, web, cookie::Key, middleware::Logger};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
+use config::PERMISSION_LAB_MANAGER;
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
-use crate::handler::semester::init_semester_routes;
+use crate::handler::semester::{init_semester_routes, get_current_semester};
 use crate::handler::course::init_course_adminroutes;
 use crate::handler::course::{list_courses, get_course, update_course};
-use crate::handler::labroom::init_labroom_adminroutes;
-use crate::handler::labroom::list_labrooms;
+use crate::handler::labroom::{init_labroom_adminroutes, get_labroom, list_labrooms};
+use crate::handler::subcourse::{init_subcourse_routes, list_subcourses};
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER};
 use crate::middleware::CheckPermission;
 mod db;
@@ -43,20 +44,28 @@ async fn main() -> std::io::Result<()> {
             ))
             .configure(init_auth_routes) // Register authentication routes
             .service(list_courses)
+            .service(list_subcourses)
             .service(get_course)
+            .service(get_current_semester)
+            .service(get_labroom)
+            .service(list_labrooms)
             .service(
                 web::scope("/admin")
                 .wrap(CheckPermission::new(PERMISSION_ADMIN))
                 .configure(init_user_routes)
                 .configure(init_semester_routes)
                 .configure(init_course_adminroutes)
-                .configure(init_labroom_adminroutes)
             )
             .service(
                 web::scope("/stuff")
-                .wrap(CheckPermission::new(PERMISSION_TEACHER))
+                .wrap(CheckPermission::new(PERMISSION_TEACHER | PERMISSION_ADMIN))
+                .configure(init_subcourse_routes)
                 .service(update_course)
-                .service(list_labrooms)
+            )
+            .service(
+                web::scope("/lab")
+                .wrap(CheckPermission::new(PERMISSION_LAB_MANAGER | PERMISSION_ADMIN))
+                .configure(init_labroom_adminroutes)
             )
     })
     .bind("127.0.0.1:8080")?

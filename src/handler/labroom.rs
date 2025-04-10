@@ -68,7 +68,6 @@ pub async fn delete_labroom(
 
 pub fn init_labroom_adminroutes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_labroom)
-        .service(get_labroom)
         .service(update_labroom)
         .service(delete_labroom);
 }

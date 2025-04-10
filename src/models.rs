@@ -36,3 +36,38 @@ pub struct Labroom{
     pub name: String,
     pub manager: String,
 }
+
+#[derive(Debug, Serialize)]
+pub struct SubCourse{
+    pub id: i64,
+    pub weekday: i64,
+    pub room_id: Labroom,
+    pub tea_name: String,
+    pub year_id: Semester,
+    pub stu_limit: i64,
+    pub course_id: Course,
+    pub lag_week: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SubCourseRequest {
+    pub weekday: i64,
+    pub room_id: i64,
+    pub tea_name: String,
+    pub year_id: i64,
+    pub stu_limit: i64,
+    pub course_id: i64,
+    pub lag_week: i64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct SubCourseResponse {
+    pub id: i64,
+    pub weekday: i64,
+    pub room_id: i64,
+    pub tea_name: String,
+    pub year_id: i64,
+    pub stu_limit: i64,
+    pub course_id: i64,
+    pub lag_week: i64,
+}

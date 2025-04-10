@@ -3,3 +3,4 @@ pub mod user;
 pub mod semester;
 pub mod course;
 pub mod labroom;
+pub mod subcourse;

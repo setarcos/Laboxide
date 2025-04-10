@@ -66,6 +66,17 @@ pub async fn delete_semester(
     }
 }
 
+#[get("/semester/current")]
+pub async fn get_current_semester(
+    db_pool: web::Data<SqlitePool>,
+) -> impl Responder {
+    match db::get_current_semester(&db_pool).await {
+        Ok(Some(semester)) => HttpResponse::Ok().json(semester),
+        Ok(None) => HttpResponse::Ok().json(json!({ "message": "Currently on vacation" })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    }
+}
+
 pub fn init_semester_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_semester)
         .service(get_semester)
