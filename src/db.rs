@@ -2,7 +2,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
-use crate::models::{SubCourseRequest, SubCourseResponse, StudentGroupResponse};
+use crate::models::{SubCourse, StudentGroup};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -323,15 +323,16 @@ pub async fn delete_labroom(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Er
 }
 
 // Db operations for SubCourse
-pub async fn add_subcourse(pool: &SqlitePool, req: SubCourseRequest) -> Result<SubCourseResponse, sqlx::Error> {
+pub async fn add_subcourse(pool: &SqlitePool, req: SubCourse) -> Result<SubCourse, sqlx::Error> {
     let result = sqlx::query!(
         r#"
-        INSERT INTO subcourses (weekday, room_id, tea_name, year_id, stu_limit, course_id, lag_week)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        INSERT INTO subcourses (weekday, room_id, tea_name, tea_id, year_id, stu_limit, course_id, lag_week)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         "#,
         req.weekday,
         req.room_id,
         req.tea_name,
+        req.tea_id,
         req.year_id,
         req.stu_limit,
         req.course_id,
@@ -353,14 +354,14 @@ pub async fn list_subcourses(
     pool: &SqlitePool,
     course_id: Option<i64>,
     semester_id: Option<i64>,
-) -> Result<Vec<SubCourseResponse>, sqlx::Error> {
+) -> Result<Vec<SubCourse>, sqlx::Error> {
     if let Some(c_id) = course_id {
         if let Some(s_id) = semester_id {
             // Case 2: Both course_id and semester_id are provided
             sqlx::query_as!(
-                SubCourseResponse,
+                SubCourse,
                 r#"
-                SELECT id, weekday, room_id, tea_name, year_id, stu_limit, course_id, lag_week
+                SELECT id, weekday, room_id, tea_name, tea_id, year_id, stu_limit, course_id, lag_week
                 FROM subcourses
                 WHERE course_id = ?1 AND year_id = ?2
                 "#,
@@ -372,9 +373,9 @@ pub async fn list_subcourses(
         } else {
             // Case 1: Only course_id is provided
             sqlx::query_as!(
-                SubCourseResponse,
+                SubCourse,
                 r#"
-                SELECT id, weekday, room_id, tea_name, year_id, stu_limit, course_id, lag_week
+                SELECT id, weekday, room_id, tea_name, tea_id, year_id, stu_limit, course_id, lag_week
                 FROM subcourses
                 WHERE course_id = ?1
                 "#,
@@ -389,12 +390,12 @@ pub async fn list_subcourses(
     }
 }
 
-pub async fn get_subcourse_by_id(pool: &SqlitePool, id: i64) -> Result<Option<SubCourseResponse>, sqlx::Error> {
+pub async fn get_subcourse_by_id(pool: &SqlitePool, id: i64) -> Result<Option<SubCourse>, sqlx::Error> {
     sqlx::query_as!(
-        SubCourseResponse,
+        SubCourse,
         r#"
         SELECT
-            s.id, s.weekday, s.room_id, s.tea_name, s.year_id,
+            s.id, s.weekday, s.room_id, s.tea_name, s.tea_id, s.year_id,
             s.stu_limit, s.course_id, s.lag_week
         FROM subcourses s
         WHERE s.id = ?
@@ -405,13 +406,13 @@ pub async fn get_subcourse_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Su
     .await
 }
 
-pub async fn update_subcourse(pool: &SqlitePool, id: i64, req: SubCourseRequest) -> Result<Option<SubCourseResponse>, sqlx::Error> {
+pub async fn update_subcourse(pool: &SqlitePool, id: i64, req: SubCourse) -> Result<Option<SubCourse>, sqlx::Error> {
     let result = sqlx::query!(
         r#"
         UPDATE subcourses
         SET weekday = ?1, room_id = ?2, tea_name = ?3, year_id = ?4,
-            stu_limit = ?5, course_id = ?6, lag_week = ?7
-        WHERE id = ?8
+            stu_limit = ?5, course_id = ?6, lag_week = ?7, tea_id = $8
+        WHERE id = ?9
         "#,
         req.weekday,
         req.room_id,
@@ -420,6 +421,7 @@ pub async fn update_subcourse(pool: &SqlitePool, id: i64, req: SubCourseRequest)
         req.stu_limit,
         req.course_id,
         req.lag_week,
+        req.tea_id,
         id
     )
     .execute(pool)
@@ -529,9 +531,9 @@ pub async fn remove_student_from_group(
 pub async fn get_group_by_subcourse_id(
     pool: &SqlitePool,
     subcourse_id: i64,
-) -> Result<Vec<StudentGroupResponse>, sqlx::Error> {
+) -> Result<Vec<StudentGroup>, sqlx::Error> {
     let rows = sqlx::query_as!(
-        StudentGroupResponse,
+        StudentGroup,
         "SELECT id, stu_id, stu_name, seat, subcourse_id FROM student_groups WHERE subcourse_id = ? ORDER BY seat",
         subcourse_id
     )
@@ -544,12 +546,12 @@ pub async fn get_group_by_subcourse_id(
 pub async fn list_student_subcourses(
     pool: &SqlitePool,
     stu_id: &str,
-) -> Result<Vec<SubCourseResponse>, sqlx::Error> {
+) -> Result<Vec<SubCourse>, sqlx::Error> {
     if let Some(current_semester) = get_current_semester(pool).await? {
         let subcourses = sqlx::query_as!(
-            SubCourseResponse,
+            SubCourse,
             r#"
-            SELECT sc.id, sc.weekday, sc.room_id, sc.tea_name, sc.year_id, sc.stu_limit, sc.course_id, sc.lag_week
+            SELECT sc.id, sc.weekday, sc.room_id, sc.tea_name, sc.tea_id, sc.year_id, sc.stu_limit, sc.course_id, sc.lag_week
             FROM subcourses sc
             JOIN student_groups sg ON sg.subcourse_id = sc.id
             WHERE sg.stu_id = ?1 AND sc.year_id = ?2

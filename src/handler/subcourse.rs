@@ -4,12 +4,12 @@ use sqlx::SqlitePool;
 use serde::Deserialize;
 
 use crate::db;
-use crate::models::{SubCourseRequest};
+use crate::models::SubCourse;
 
 #[post("/subcourse")]
 pub async fn create_subcourse(
     db_pool: web::Data<SqlitePool>,
-    item: web::Json<SubCourseRequest>,
+    item: web::Json<SubCourse>,
 ) -> impl Responder {
     match db::add_subcourse(&db_pool, item.into_inner()).await {
         Ok(subcourse) => HttpResponse::Ok().json(subcourse),
@@ -53,7 +53,7 @@ pub async fn get_subcourse(
 pub async fn update_subcourse(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
-    item: web::Json<SubCourseRequest>,
+    item: web::Json<SubCourse>,
 ) -> impl Responder {
     let id = path.into_inner();
     match db::update_subcourse(&db_pool, id, item.into_inner()).await {

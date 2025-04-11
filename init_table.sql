@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS subcourses (
     weekday INTEGER NOT NULL,
     room_id INTEGER NOT NULL REFERENCES labrooms (id),
     tea_name VARCHAR(10) NOT NULL,
+    tea_id VARCHAR(10) NOT NULL,
     year_id INTEGER NOT NULL REFERENCES semesters (id),
     stu_limit INTEGER NOT NULL,
     course_id INTEGER NOT NULL REFERENCES courses (id),
