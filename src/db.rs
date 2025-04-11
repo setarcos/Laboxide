@@ -2,7 +2,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
-use crate::models::{SubCourseRequest, SubCourseResponse};
+use crate::models::{SubCourseRequest, SubCourseResponse, StudentGroupResponse};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -448,5 +448,121 @@ pub async fn delete_subcourse(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::
             error!("Failed to delete subcourse {}: {}", id, e);
             Err(e)
         }
+    }
+}
+
+
+// Operation for student groups
+pub async fn add_student_to_group( pool: &SqlitePool, stu_id: &str,
+    stu_name: &str, subcourse_id: i64,) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+
+    // Lock database to avoid race condition
+    sqlx::query("BEGIN IMMEDIATE").execute(&mut *tx).await?;
+
+    // Check if the student is already in the group
+    let existing: i64 = sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM student_groups WHERE subcourse_id = ? AND stu_id = ?",
+        subcourse_id,
+        stu_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    if existing > 0 {
+        return Ok(()); // Already added
+    }
+    // Fetch current count
+    let count = sqlx::query_scalar!(
+        "SELECT COUNT(*) FROM student_groups WHERE subcourse_id = ?",
+        subcourse_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Fetch stu_limit
+    let stu_limit = sqlx::query_scalar!(
+        "SELECT stu_limit FROM subcourses WHERE id = ?",
+        subcourse_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    if count >= stu_limit {
+        return Err(sqlx::Error::RowNotFound); // or a custom error later
+    }
+
+    // Insert student with computed seat in one go
+    sqlx::query!(
+        r#"
+        INSERT INTO student_groups (stu_id, stu_name, seat, subcourse_id)
+        SELECT ?1, ?2, IFNULL(MAX(seat), 0) + 1, ?3
+        FROM student_groups
+        WHERE subcourse_id = ?3
+        "#,
+        stu_id,
+        stu_name,
+        subcourse_id
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn remove_student_from_group(
+    pool: &SqlitePool,
+    stu_id: &str,
+    subcourse_id: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM student_groups WHERE stu_id = ? AND subcourse_id = ?",
+        stu_id,
+        subcourse_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn get_group_by_subcourse_id(
+    pool: &SqlitePool,
+    subcourse_id: i64,
+) -> Result<Vec<StudentGroupResponse>, sqlx::Error> {
+    let rows = sqlx::query_as!(
+        StudentGroupResponse,
+        "SELECT id, stu_id, stu_name, seat, subcourse_id FROM student_groups WHERE subcourse_id = ? ORDER BY seat",
+        subcourse_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
+pub async fn list_student_subcourses(
+    pool: &SqlitePool,
+    stu_id: &str,
+) -> Result<Vec<SubCourseResponse>, sqlx::Error> {
+    if let Some(current_semester) = get_current_semester(pool).await? {
+        let subcourses = sqlx::query_as!(
+            SubCourseResponse,
+            r#"
+            SELECT sc.id, sc.weekday, sc.room_id, sc.tea_name, sc.year_id, sc.stu_limit, sc.course_id, sc.lag_week
+            FROM subcourses sc
+            JOIN student_groups sg ON sg.subcourse_id = sc.id
+            WHERE sg.stu_id = ?1 AND sc.year_id = ?2
+            "#,
+            stu_id,
+            current_semester.id
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(subcourses)
+    } else {
+        // No active semester
+        Ok(vec![])
     }
 }

@@ -1,7 +1,6 @@
 // src/main.rs
 use actix_web::{App, HttpServer, web, cookie::Key, middleware::Logger};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
-use config::PERMISSION_LAB_MANAGER;
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
 use crate::handler::semester::{init_semester_routes, get_current_semester};
@@ -9,7 +8,9 @@ use crate::handler::course::init_course_adminroutes;
 use crate::handler::course::{list_courses, get_course, update_course};
 use crate::handler::labroom::{init_labroom_adminroutes, get_labroom, list_labrooms};
 use crate::handler::subcourse::{init_subcourse_routes, list_subcourses};
-use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER};
+use crate::handler::group::{init_group_routes, remove_student};
+use crate::config::PERMISSION_LAB_MANAGER;
+use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
 use crate::middleware::CheckPermission;
 mod db;
 mod models;
@@ -61,11 +62,17 @@ async fn main() -> std::io::Result<()> {
                 .wrap(CheckPermission::new(PERMISSION_TEACHER | PERMISSION_ADMIN))
                 .configure(init_subcourse_routes)
                 .service(update_course)
+                .service(remove_student)
             )
             .service(
                 web::scope("/lab")
                 .wrap(CheckPermission::new(PERMISSION_LAB_MANAGER | PERMISSION_ADMIN))
                 .configure(init_labroom_adminroutes)
+            )
+            .service(
+                web::scope("/stu")
+                .wrap(CheckPermission::new(PERMISSION_STUDENT))
+                .configure(init_group_routes)
             )
     })
     .bind("127.0.0.1:8080")?

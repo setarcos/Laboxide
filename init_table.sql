@@ -40,3 +40,11 @@ CREATE TABLE IF NOT EXISTS subcourses (
     course_id INTEGER NOT NULL REFERENCES courses (id),
     lag_week INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS student_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stu_id VARCHAR(10) NOT NULL,
+    stu_name VARCHAR(10) NOT NULL,
+    seat INTEGER NOT NULL,
+    subcourse_id INTEGER NOT NULL REFERENCES subcourses (id)
+);

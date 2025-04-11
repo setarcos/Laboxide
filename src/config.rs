@@ -4,6 +4,7 @@ use std::env;
 pub const PERMISSION_ADMIN: i64 = 0b0001;  // Admin: 1st bit
 pub const PERMISSION_TEACHER: i64 = 0b0010; // Teacher: 2nd bit
 pub const PERMISSION_LAB_MANAGER: i64 = 0b0100; // Lab Manager: 3rd bit
+pub const PERMISSION_STUDENT: i64 = 0b1000; // Student: 4th bit
 
 #[derive(Clone)]
 pub struct Config {

@@ -71,3 +71,12 @@ pub struct SubCourseResponse {
     pub course_id: i64,
     pub lag_week: i64,
 }
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct StudentGroupResponse {
+    pub id: i64,
+    pub stu_id: String,
+    pub stu_name: String,
+    pub seat: i64,
+    pub subcourse_id: i64,
+}
