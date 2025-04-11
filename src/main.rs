@@ -58,7 +58,7 @@ async fn main() -> std::io::Result<()> {
                 .configure(init_course_adminroutes)
             )
             .service(
-                web::scope("/stuff")
+                web::scope("/teacher")
                 .wrap(CheckPermission::new(PERMISSION_TEACHER | PERMISSION_ADMIN))
                 .configure(init_subcourse_routes)
                 .service(update_course)
