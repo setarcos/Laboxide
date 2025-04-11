@@ -6,8 +6,8 @@ use crate::db;
 use log::error;
 
 // Add current user to group
-#[post("/group/add/{subcourse_id}")]
-pub async fn add_group(
+#[post("/group/join/{subcourse_id}")]
+pub async fn join_group(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
     session: Session,
@@ -90,7 +90,7 @@ pub async fn remove_student(
 
 // Register the routes
 pub fn init_group_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(add_group)
+    cfg.service(join_group)
        .service(leave_group)
        .service(list_group);
 }

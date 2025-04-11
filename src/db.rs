@@ -459,9 +459,6 @@ pub async fn add_student_to_group( pool: &SqlitePool, stu_id: &str,
     stu_name: &str, subcourse_id: i64,) -> Result<(), sqlx::Error> {
     let mut tx = pool.begin().await?;
 
-    // Lock database to avoid race condition
-    sqlx::query("BEGIN IMMEDIATE").execute(&mut *tx).await?;
-
     // Check if the student is already in the group
     let existing: i64 = sqlx::query_scalar!(
         "SELECT COUNT(*) FROM student_groups WHERE subcourse_id = ? AND stu_id = ?",
@@ -557,6 +554,30 @@ pub async fn list_student_subcourses(
             WHERE sg.stu_id = ?1 AND sc.year_id = ?2
             "#,
             stu_id,
+            current_semester.id
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(subcourses)
+    } else {
+        // No active semester
+        Ok(vec![])
+    }
+}
+
+pub async fn list_teacher_subcourses(
+    pool: &SqlitePool,
+    tea_id: &str,
+) -> Result<Vec<SubCourse>, sqlx::Error> {
+    if let Some(current_semester) = get_current_semester(pool).await? {
+        let subcourses = sqlx::query_as!(
+            SubCourse,
+            r#"
+            SELECT id, weekday, room_id, tea_name, tea_id, year_id, stu_limit, course_id, lag_week
+            FROM subcourses WHERE tea_id = ?1 AND year_id = ?2
+            "#,
+            tea_id,
             current_semester.id
         )
         .fetch_all(pool)
