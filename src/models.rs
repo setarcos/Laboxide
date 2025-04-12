@@ -67,3 +67,11 @@ pub struct CourseSchedule{
     pub requirement: String,
     pub course_id: i64,
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CourseFile {
+    pub id: i64,
+    pub fname: String,
+    pub finfo: String,
+    pub course_id: i64,
+}

@@ -10,6 +10,7 @@ use crate::handler::labroom::{init_labroom_adminroutes, get_labroom, list_labroo
 use crate::handler::subcourse::{init_subcourse_routes, list_subcourses, list_my_subcourses, get_subcourse};
 use crate::handler::group::{init_group_routes, remove_student, list_group};
 use crate::handler::schedule::{init_schedule_routes, list_schedules, get_schedule};
+use crate::handler::coursefile::{init_course_file_routes, list_course_files, download_course_file};
 use crate::config::PERMISSION_LAB_MANAGER;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
 use crate::middleware::CheckPermission;
@@ -55,6 +56,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_subcourse)
             .service(list_schedules)
             .service(get_schedule)
+            .service(list_course_files)
             .service(
                 web::scope("/admin")
                 .wrap(CheckPermission::new(PERMISSION_ADMIN))
@@ -67,6 +69,7 @@ async fn main() -> std::io::Result<()> {
                 .wrap(CheckPermission::new(PERMISSION_TEACHER | PERMISSION_ADMIN))
                 .configure(init_subcourse_routes)
                 .configure(init_schedule_routes)
+                .configure(init_course_file_routes)
                 .service(update_course)
                 .service(remove_student)
             )
@@ -84,6 +87,7 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/member")
                 .wrap(CheckPermission::new(PERMISSION_STUDENT | PERMISSION_TEACHER))
                 .service(list_group)
+                .service(download_course_file)
             )
     })
     .bind("127.0.0.1:8080")?

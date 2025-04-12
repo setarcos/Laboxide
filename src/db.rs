@@ -2,7 +2,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
-use crate::models::{SubCourse, StudentGroup, CourseSchedule};
+use crate::models::{SubCourse, StudentGroup, CourseSchedule, CourseFile};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -678,3 +678,62 @@ pub async fn delete_schedule(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::E
     Ok(result.rows_affected() > 0)
 }
 
+// Operations for coursefiles
+pub async fn add_course_file(
+    pool: &SqlitePool,
+    fname: String,
+    finfo: String,
+    course_id: i64,
+) -> Result<CourseFile, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        CourseFile,
+        r#"
+        INSERT INTO course_files (fname, finfo, course_id)
+        VALUES (?1, ?2, ?3)
+        RETURNING id, fname, finfo, course_id
+        "#,
+        fname,
+        finfo,
+        course_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_course_files(pool: &SqlitePool, id: i64) -> Result<Vec<CourseFile>, sqlx::Error> {
+    let files = sqlx::query_as!(
+        CourseFile,
+        r#"SELECT id, fname, finfo, course_id FROM course_files
+        WHERE course_id = ?"#,
+        id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(files)
+}
+
+pub async fn get_course_file_by_id(pool: &SqlitePool, id: i64) -> Result<Option<CourseFile>, sqlx::Error> {
+    let file = sqlx::query_as!(
+        CourseFile,
+        r#"SELECT id, fname, finfo, course_id FROM course_files WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(file)
+}
+
+pub async fn delete_course_file(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"DELETE FROM course_files WHERE id = ?"#,
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}

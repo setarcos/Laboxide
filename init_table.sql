@@ -57,3 +57,10 @@ CREATE TABLE IF NOT EXISTS course_schedules (
     requirement VARCHAR(50) NOT NULL,
     course_id INTEGER NOT NULL REFERENCES courses (id)
 );
+
+CREATE TABLE IF NOT EXISTS course_files (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    fname VARCHAR(100) NOT NULL,
+    finfo VARCHAR(100) NOT NULL,
+    course_id INTEGER NOT NULL REFERENCES courses (id)
+);

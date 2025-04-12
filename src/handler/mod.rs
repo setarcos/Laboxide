@@ -6,3 +6,4 @@ pub mod labroom;
 pub mod subcourse;
 pub mod group;
 pub mod schedule;
+pub mod coursefile;
