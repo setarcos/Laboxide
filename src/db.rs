@@ -2,7 +2,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
-use crate::models::{SubCourse, StudentGroup, CourseSchedule, CourseFile};
+use crate::models::{SubCourse, SubCourseWithName, StudentGroup, CourseSchedule, CourseFile};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -390,15 +390,31 @@ pub async fn list_subcourses(
     }
 }
 
+pub async fn get_subcourse_with_name(pool: &SqlitePool, id: i64) -> Result<Option<SubCourseWithName>, sqlx::Error> {
+    sqlx::query_as!(
+        SubCourseWithName,
+        r#"
+        SELECT s.id, s.weekday, r.room AS room_name, s.tea_name,
+            s.tea_id, s.year_id, s.stu_limit, s.course_id, s.lag_week,
+            c.name AS course_name
+        FROM subcourses s
+            INNER JOIN courses c ON s.course_id = c.id
+            INNER JOIN labrooms r ON s.room_id = r.id
+            WHERE s.id = ?
+        "#,
+        id
+    )
+    .fetch_optional(pool)
+    .await
+}
+
 pub async fn get_subcourse_by_id(pool: &SqlitePool, id: i64) -> Result<Option<SubCourse>, sqlx::Error> {
     sqlx::query_as!(
         SubCourse,
         r#"
         SELECT
-            s.id, s.weekday, s.room_id, s.tea_name, s.tea_id, s.year_id,
-            s.stu_limit, s.course_id, s.lag_week
-        FROM subcourses s
-        WHERE s.id = ?
+            id, weekday, room_id, tea_name, tea_id, year_id, stu_limit, course_id, lag_week
+        FROM subcourses WHERE id = ?
         "#,
         id
     )
@@ -543,15 +559,19 @@ pub async fn get_group_by_subcourse_id(
 pub async fn list_student_subcourses(
     pool: &SqlitePool,
     stu_id: &str,
-) -> Result<Vec<SubCourse>, sqlx::Error> {
+) -> Result<Vec<SubCourseWithName>, sqlx::Error> {
     if let Some(current_semester) = get_current_semester(pool).await? {
         let subcourses = sqlx::query_as!(
-            SubCourse,
+            SubCourseWithName,
             r#"
-            SELECT sc.id, sc.weekday, sc.room_id, sc.tea_name, sc.tea_id, sc.year_id, sc.stu_limit, sc.course_id, sc.lag_week
-            FROM subcourses sc
-            JOIN student_groups sg ON sg.subcourse_id = sc.id
-            WHERE sg.stu_id = ?1 AND sc.year_id = ?2
+            SELECT
+                s.id, s.weekday, r.room AS room_name, s.tea_name, s.tea_id, s.year_id,
+                s.stu_limit, s.course_id, s.lag_week, c.name AS course_name
+            FROM subcourses s
+            JOIN student_groups sg ON sg.subcourse_id = s.id
+            JOIN courses c ON s.course_id = c.id
+            JOIN labrooms r ON s.room_id = r.id
+            WHERE sg.stu_id = ?1 AND s.year_id = ?2
             "#,
             stu_id,
             current_semester.id
@@ -569,13 +589,18 @@ pub async fn list_student_subcourses(
 pub async fn list_teacher_subcourses(
     pool: &SqlitePool,
     tea_id: &str,
-) -> Result<Vec<SubCourse>, sqlx::Error> {
+) -> Result<Vec<SubCourseWithName>, sqlx::Error> {
     if let Some(current_semester) = get_current_semester(pool).await? {
         let subcourses = sqlx::query_as!(
-            SubCourse,
+            SubCourseWithName,
             r#"
-            SELECT id, weekday, room_id, tea_name, tea_id, year_id, stu_limit, course_id, lag_week
-            FROM subcourses WHERE tea_id = ?1 AND year_id = ?2
+            SELECT s.id, s.weekday, r.room AS room_name, s.tea_name,
+            s.tea_id, s.year_id, s.stu_limit, s.course_id, s.lag_week,
+            c.name AS course_name
+            FROM subcourses s
+            INNER JOIN courses c ON s.course_id = c.id
+            INNER JOIN labrooms r ON s.room_id = r.id
+            WHERE s.tea_id = ?1 AND s.year_id = ?2
             "#,
             tea_id,
             current_semester.id

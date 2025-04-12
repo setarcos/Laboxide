@@ -75,7 +75,7 @@ pub async fn get_subcourse(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
 ) -> impl Responder {
-    match db::get_subcourse_by_id(&db_pool, path.into_inner()).await {
+    match db::get_subcourse_with_name(&db_pool, path.into_inner()).await {
         Ok(Some(subcourse)) => HttpResponse::Ok().json(subcourse),
         Ok(None) => HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
