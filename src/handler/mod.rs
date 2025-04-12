@@ -5,3 +5,4 @@ pub mod course;
 pub mod labroom;
 pub mod subcourse;
 pub mod group;
+pub mod schedule;

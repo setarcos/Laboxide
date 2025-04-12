@@ -2,7 +2,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
-use crate::models::{SubCourse, StudentGroup};
+use crate::models::{SubCourse, StudentGroup, CourseSchedule};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -589,3 +589,92 @@ pub async fn list_teacher_subcourses(
         Ok(vec![])
     }
 }
+
+// CourseSchedule operations
+pub async fn add_schedule(
+    pool: &SqlitePool,
+    schedule: CourseSchedule,
+) -> Result<CourseSchedule, sqlx::Error> {
+    let result = sqlx::query_as!(
+        CourseSchedule,
+        r#"
+        INSERT INTO course_schedules (week, name, requirement, course_id)
+        VALUES (?1, ?2, ?3, ?4)
+        RETURNING id, week, name, requirement, course_id
+        "#,
+        schedule.week,
+        schedule.name,
+        schedule.requirement,
+        schedule.course_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(result)
+}
+
+pub async fn list_schedules(pool: &SqlitePool, id: i64) -> Result<Vec<CourseSchedule>, sqlx::Error> {
+    let result = sqlx::query_as!(
+        CourseSchedule,
+        r#"SELECT id, week, name, requirement, course_id
+        FROM course_schedules
+        WHERE course_id = ?"#,
+        id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(result)
+}
+
+pub async fn get_schedule_by_id(
+    pool: &SqlitePool,
+    id: i64,
+) -> Result<Option<CourseSchedule>, sqlx::Error> {
+    let result = sqlx::query_as!(
+        CourseSchedule,
+        r#"SELECT id, week, name, requirement, course_id FROM course_schedules WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(result)
+}
+
+pub async fn update_schedule(
+    pool: &SqlitePool,
+    id: i64,
+    schedule: CourseSchedule,
+) -> Result<Option<CourseSchedule>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        CourseSchedule,
+        r#"
+        UPDATE course_schedules
+        SET week = ?1, name = ?2, requirement = ?3, course_id = ?4
+        WHERE id = ?5
+        RETURNING id, week, name, requirement, course_id
+        "#,
+        schedule.week,
+        schedule.name,
+        schedule.requirement,
+        schedule.course_id,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_schedule(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM course_schedules WHERE id = ?",
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
