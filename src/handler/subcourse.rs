@@ -110,8 +110,6 @@ pub async fn delete_subcourse(
 
 pub fn init_subcourse_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_subcourse)
-        .service(list_subcourses)
-        .service(get_subcourse)
         .service(update_subcourse)
         .service(delete_subcourse);
 }

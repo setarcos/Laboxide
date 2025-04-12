@@ -7,8 +7,8 @@ use crate::handler::semester::{init_semester_routes, get_current_semester};
 use crate::handler::course::init_course_adminroutes;
 use crate::handler::course::{list_courses, get_course, update_course};
 use crate::handler::labroom::{init_labroom_adminroutes, get_labroom, list_labrooms};
-use crate::handler::subcourse::{init_subcourse_routes, list_subcourses, list_my_subcourses};
-use crate::handler::group::{init_group_routes, remove_student};
+use crate::handler::subcourse::{init_subcourse_routes, list_subcourses, list_my_subcourses, get_subcourse};
+use crate::handler::group::{init_group_routes, remove_student, list_group};
 use crate::config::PERMISSION_LAB_MANAGER;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
 use crate::middleware::CheckPermission;
@@ -51,6 +51,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_labroom)
             .service(list_labrooms)
             .service(list_my_subcourses)
+            .service(get_subcourse)
             .service(
                 web::scope("/admin")
                 .wrap(CheckPermission::new(PERMISSION_ADMIN))
@@ -74,6 +75,11 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/stu")
                 .wrap(CheckPermission::new(PERMISSION_STUDENT))
                 .configure(init_group_routes)
+            )
+            .service(
+                web::scope("/member")
+                .wrap(CheckPermission::new(PERMISSION_STUDENT | PERMISSION_TEACHER))
+                .service(list_group)
             )
     })
     .bind("127.0.0.1:8080")?
