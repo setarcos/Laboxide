@@ -5,7 +5,7 @@ use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, StudentGroup, CourseSchedule, CourseFile};
 use crate::models::{StudentLog};
-use chrono::Utc;
+use chrono::Local;
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -121,7 +121,7 @@ pub async fn get_semester_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Sem
 }
 
 pub async fn get_current_semester(pool: &SqlitePool) -> Result<Option<Semester>, sqlx::Error> {
-    let today = chrono::Local::now().naive_local().date();
+    let today = Local::now().naive_local().date();
     let today_str = today.to_string();
 
     let semester = sqlx::query_as!(
@@ -559,6 +559,23 @@ pub async fn set_student_seat(
     Ok(())
 }
 
+pub async fn get_student_seat(
+    pool: &SqlitePool,
+    stu_id: &str,
+    subcourse_id: i64,
+) -> Result<i64, sqlx::Error> {
+    if let Some(seat) = sqlx::query_scalar!(
+        "SELECT seat FROM student_groups WHERE stu_id = ?1 AND subcourse_id = ?2",
+        stu_id, subcourse_id
+    )
+    .fetch_optional(pool)
+    .await? {
+        Ok(seat)
+    } else {
+        Err(sqlx::Error::RowNotFound)
+    }
+}
+
 pub async fn get_group_by_subcourse_id(
     pool: &SqlitePool,
     subcourse_id: i64,
@@ -685,6 +702,24 @@ pub async fn get_schedule_by_id(
     Ok(result)
 }
 
+pub async fn get_schedule_name(
+    pool: &SqlitePool,
+    course_id: i64,
+    week: i64,
+) -> Result<String, sqlx::Error> {
+    if let Some(result) = sqlx::query_scalar!(
+        "SELECT name FROM course_schedules WHERE course_id = ? AND week= ?",
+        course_id,
+        week
+    )
+    .fetch_optional(pool)
+    .await? {
+        Ok(result)
+    } else {
+        Err(sqlx::Error::RowNotFound)
+    }
+}
+
 pub async fn update_schedule(
     pool: &SqlitePool,
     id: i64,
@@ -784,7 +819,7 @@ pub async fn delete_course_file(pool: &SqlitePool, id: i64) -> Result<bool, sqlx
 // Operations for student_logs
 
 pub async fn add_student_log(pool: &SqlitePool, log: StudentLog) -> Result<StudentLog, sqlx::Error> {
-    let now = Utc::now().naive_local();
+    let now = Local::now().naive_local();
     let rec = sqlx::query_as!(
         StudentLog,
         r#"
@@ -803,7 +838,7 @@ pub async fn add_student_log(pool: &SqlitePool, log: StudentLog) -> Result<Stude
 }
 
 pub async fn update_student_log(pool: &SqlitePool, id: i64, log: StudentLog) -> Result<(), sqlx::Error> {
-    let now = Utc::now().naive_local();
+    let now = Local::now().naive_local();
     sqlx::query!(
         r#"
         UPDATE student_logs
@@ -822,7 +857,7 @@ pub async fn confirm_student_log(
     id: i64,
     tea_note: &String,
 ) -> Result<(), sqlx::Error> {
-    let now = Utc::now().naive_local();
+    let now = Local::now().naive_local();
     sqlx::query!(
         "UPDATE student_logs SET tea_note = ?1, confirm = 1, fin_time = ?3 WHERE id = ?2 ",
         tea_note, id, now
@@ -830,4 +865,44 @@ pub async fn confirm_student_log(
     .execute(pool)
     .await?;
     Ok(())
+}
+
+pub async fn get_default_log(
+    pool: &SqlitePool,
+    stu_id: &String,
+    subcourse_id: i64
+) -> Result<StudentLog, sqlx::Error> {
+    let today = Local::now().naive_local();
+    let mut log = StudentLog {
+        id: 0,
+        stu_id: stu_id.to_string(),
+        stu_name: String::new(),
+        subcourse_id,
+        room_id: 0,
+        seat: 0,
+        lab_name: String::new(),
+        note: String::new(),
+        tea_note: String::new(),
+        tea_name: String::new(),
+        fin_time: today,
+        confirm: 0,
+    };
+    if let Some(subcourse) = get_subcourse_by_id(pool, subcourse_id).await? {
+        log.room_id = subcourse.room_id;
+        let semester_id = subcourse.year_id;
+        if let Some(semester) = get_semester_by_id(pool, semester_id).await? {
+            let week = (today.date() - semester.start).num_weeks() + 1 + subcourse.lag_week;
+            log.seat = get_student_seat(pool, stu_id, subcourse_id).await?;
+            match get_schedule_name(pool, subcourse.course_id, week).await {
+                Ok(name) => log.lab_name = name,
+                Err(sqlx::Error::RowNotFound) => {},
+                Err(e) => return Err(e),
+            }
+        } else {
+            return Err(sqlx::Error::RowNotFound);
+        }
+    } else {
+        return Err(sqlx::Error::RowNotFound);
+    }
+    Ok(log)
 }
