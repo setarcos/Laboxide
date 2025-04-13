@@ -1,3 +1,4 @@
+use actix_web::Result;
 use sqlx::{Pool, Sqlite, SqlitePool};
 use log::error;
 use crate::models::{User, Semester, Course, Labroom};
@@ -533,6 +534,23 @@ pub async fn remove_student_from_group(
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "DELETE FROM student_groups WHERE stu_id = ? AND subcourse_id = ?",
+        stu_id,
+        subcourse_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn set_student_seat(
+    pool: &SqlitePool,
+    stu_id: &str,
+    subcourse_id: i64,
+    seat: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE student_groups SET seat = ?1 WHERE stu_id = ?2 AND subcourse_id = ?3",
+        seat,
         stu_id,
         subcourse_id
     )

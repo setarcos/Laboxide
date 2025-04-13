@@ -8,7 +8,7 @@ use crate::handler::course::init_course_adminroutes;
 use crate::handler::course::{list_courses, get_course, update_course};
 use crate::handler::labroom::{init_labroom_adminroutes, get_labroom, list_labrooms};
 use crate::handler::subcourse::{init_subcourse_routes, list_subcourses, list_my_subcourses, get_subcourse};
-use crate::handler::group::{init_group_routes, remove_student, list_group};
+use crate::handler::group::{init_group_routes, remove_student, list_group, update_student_seat};
 use crate::handler::schedule::{init_schedule_routes, list_schedules, get_schedule};
 use crate::handler::coursefile::{init_course_file_routes, list_course_files, download_course_file};
 use crate::config::PERMISSION_LAB_MANAGER;
@@ -72,6 +72,7 @@ async fn main() -> std::io::Result<()> {
                 .configure(init_course_file_routes)
                 .service(update_course)
                 .service(remove_student)
+                .service(update_student_seat)
             )
             .service(
                 web::scope("/lab")
