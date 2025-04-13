@@ -1,7 +1,6 @@
 use actix_session::Session;
 use actix_web::{get, put, post, delete, web, HttpResponse, Responder};
 use sqlx::SqlitePool;
-use serde::Deserialize;
 use serde_json::json;
 use crate::db;
 use log::error;
@@ -76,7 +75,7 @@ pub async fn list_group(
     }
 }
 
-#[delete("/groupremove/{subcourse_id}/{stu_id}")]
+#[delete("/group/remove/{subcourse_id}/{stu_id}")]
 pub async fn remove_student(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<(i64, String)>,
@@ -89,25 +88,14 @@ pub async fn remove_student(
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct SeatUpdateRequest {
-    pub stu_id: String,
-    pub subcourse_id: i64,
-    pub seat: i64,
-}
-
-#[put("/group/seat")]
+#[put("/group/seat/{group_id}/{seat}")]
 pub async fn update_student_seat(
     db_pool: web::Data<SqlitePool>,
-    payload: web::Json<SeatUpdateRequest>,
+    path: web::Path<(i64, i64)>,
 ) -> impl Responder {
-    let SeatUpdateRequest {
-        stu_id,
-        subcourse_id,
-        seat,
-    } = payload.into_inner();
+    let (group_id, seat) = path.into_inner();
 
-    match db::set_student_seat(&db_pool, &stu_id, subcourse_id, seat).await {
+    match db::set_student_seat(&db_pool, group_id, seat).await {
         Ok(_) => HttpResponse::Ok().json(json!({ "message": "Seat updated successfully" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }

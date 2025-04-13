@@ -16,7 +16,7 @@ pub async fn create_schedule(
     }
 }
 
-#[get("/courseschedule/{id}")]
+#[get("/schedule/course/{id}")]
 pub async fn list_schedules(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,

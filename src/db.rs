@@ -4,6 +4,8 @@ use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, StudentGroup, CourseSchedule, CourseFile};
+use crate::models::{StudentLog};
+use chrono::Utc;
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -544,15 +546,13 @@ pub async fn remove_student_from_group(
 
 pub async fn set_student_seat(
     pool: &SqlitePool,
-    stu_id: &str,
-    subcourse_id: i64,
+    group_id: i64,
     seat: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE student_groups SET seat = ?1 WHERE stu_id = ?2 AND subcourse_id = ?3",
+        "UPDATE student_groups SET seat = ?1 WHERE id = ?2",
         seat,
-        stu_id,
-        subcourse_id
+        group_id
     )
     .execute(pool)
     .await?;
@@ -779,4 +779,55 @@ pub async fn delete_course_file(pool: &SqlitePool, id: i64) -> Result<bool, sqlx
     .await?;
 
     Ok(result.rows_affected() > 0)
+}
+
+// Operations for student_logs
+
+pub async fn add_student_log(pool: &SqlitePool, log: StudentLog) -> Result<StudentLog, sqlx::Error> {
+    let now = Utc::now().naive_local();
+    let rec = sqlx::query_as!(
+        StudentLog,
+        r#"
+        INSERT INTO student_logs (
+            stu_id, stu_name, subcourse_id, room_id, seat,
+            lab_name, note, tea_note, tea_name, fin_time, confirm
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0)
+        RETURNING *
+        "#,
+        log.stu_id, log.stu_name, log.subcourse_id, log.room_id, log.seat,
+        log.lab_name, log.note, log.tea_note, log.tea_name, now
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(rec)
+}
+
+pub async fn update_student_log(pool: &SqlitePool, id: i64, log: StudentLog) -> Result<(), sqlx::Error> {
+    let now = Utc::now().naive_local();
+    sqlx::query!(
+        r#"
+        UPDATE student_logs
+        SET seat = ?1, note = ?2, fin_time = ?3, lab_name = ?4, fin_time = ?5
+        WHERE id = ?6
+        "#,
+        log.seat, log.note, log.fin_time, log.lab_name, now, id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn confirm_student_log(
+    pool: &SqlitePool,
+    id: i64,
+    tea_note: &String,
+) -> Result<(), sqlx::Error> {
+    let now = Utc::now().naive_local();
+    sqlx::query!(
+        "UPDATE student_logs SET tea_note = ?1, confirm = 1, fin_time = ?3 WHERE id = ?2 ",
+        tea_note, id, now
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }

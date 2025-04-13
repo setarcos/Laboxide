@@ -64,3 +64,18 @@ CREATE TABLE IF NOT EXISTS course_files (
     finfo VARCHAR(100) NOT NULL,
     course_id INTEGER NOT NULL REFERENCES courses (id)
 );
+
+CREATE TABLE IF NOT EXISTS student_logs (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    stu_id VARCHAR(10) NOT NULL,
+    stu_name VARCHAR(10) NOT NULL,
+    subcourse_id INTEGER NOT NULL REFERENCES subcourses (id),
+    room_id INTEGER NOT NULL REFERENCES labrooms (id),
+    seat INTEGER NOT NULL,
+    lab_name VARCHAR(20) NOT NULL,
+    note VARCHAR(50) NOT NULL,
+    tea_note VARCHAR(50) NOT NULL,
+    tea_name VARCHAR(10) NOT NULL,
+    fin_time datetime NOT NULL,
+    confirm INTEGER NOT NULL
+);

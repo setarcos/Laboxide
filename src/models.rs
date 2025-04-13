@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
@@ -88,4 +88,20 @@ pub struct CourseFile {
     pub fname: String,
     pub finfo: String,
     pub course_id: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct StudentLog {
+    pub id: i64,
+    pub stu_id: String,
+    pub stu_name: String,
+    pub subcourse_id: i64,
+    pub room_id: i64,
+    pub seat: i64,
+    pub lab_name: String,
+    pub note: String,
+    pub tea_note: String,
+    pub tea_name: String,
+    pub fin_time: NaiveDateTime,
+    pub confirm: i64,
 }

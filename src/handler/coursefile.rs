@@ -89,7 +89,7 @@ pub async fn download_course_file(
     }
 }
 
-#[get("/coursefilelist/{id}")]
+#[get("/coursefile/list/{id}")]
 pub async fn list_course_files(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
