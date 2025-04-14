@@ -5,7 +5,7 @@ use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, StudentGroup, CourseSchedule, CourseFile};
 use crate::models::{StudentLog};
-use chrono::Local;
+use chrono::{Local, Duration};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -873,6 +873,23 @@ pub async fn get_default_log(
     subcourse_id: i64
 ) -> Result<StudentLog, sqlx::Error> {
     let today = Local::now().naive_local();
+    let five_hours_ago = today - Duration::hours(5);
+    if let Some(existing_log) = sqlx::query_as!(
+        StudentLog,
+        r#"
+        SELECT id, stu_id, stu_name, subcourse_id, room_id, seat,
+               lab_name, note, tea_note, tea_name, fin_time, confirm
+        FROM student_logs
+        WHERE stu_id = ?1 AND subcourse_id = ?2 AND fin_time >= ?3
+        ORDER BY fin_time DESC LIMIT 1
+        "#,
+        stu_id, subcourse_id, five_hours_ago
+    )
+    .fetch_optional(pool)
+    .await?
+    {
+        return Ok(existing_log);
+    }
     let mut log = StudentLog {
         id: 0,
         stu_id: stu_id.to_string(),

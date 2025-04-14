@@ -11,6 +11,7 @@ use crate::handler::subcourse::{init_subcourse_routes, list_subcourses, list_my_
 use crate::handler::group::{init_group_routes, remove_student, list_group, update_student_seat};
 use crate::handler::schedule::{init_schedule_routes, list_schedules, get_schedule};
 use crate::handler::coursefile::{init_course_file_routes, list_course_files, download_course_file};
+use crate::handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log};
 use crate::config::PERMISSION_LAB_MANAGER;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
 use crate::middleware::CheckPermission;
@@ -73,6 +74,7 @@ async fn main() -> std::io::Result<()> {
                 .service(update_course)
                 .service(remove_student)
                 .service(update_student_seat)
+                .service(confirm_student_log)
             )
             .service(
                 web::scope("/lab")
@@ -83,6 +85,8 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/stu")
                 .wrap(CheckPermission::new(PERMISSION_STUDENT))
                 .configure(init_group_routes)
+                .configure(init_student_log_routes)
+                .service(default_student_log)
             )
             .service(
                 web::scope("/member")

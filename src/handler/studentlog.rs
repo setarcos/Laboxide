@@ -1,4 +1,4 @@
-use actix_web::{post, put, web, HttpResponse, Responder};
+use actix_web::{post, put, web, get, HttpResponse, Responder};
 use serde_json::json;
 use sqlx::SqlitePool;
 use serde::Deserialize;
@@ -47,8 +47,24 @@ pub async fn confirm_student_log(
     }
 }
 
+#[derive(Deserialize)]
+pub struct GetLogParams {
+    pub subcourse_id: i64,
+    pub stu_id: String,
+}
+
+#[get("/student_log/default")]
+async fn default_student_log(
+    pool: web::Data<SqlitePool>,
+    query: web::Query<GetLogParams>,
+) -> impl Responder {
+    match db::get_default_log(&pool, &query.stu_id, query.subcourse_id).await {
+        Ok(log) => HttpResponse::Ok().json(log),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    }
+}
+
 pub fn init_student_log_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_student_log)
-       .service(update_student_log)
-       .service(confirm_student_log);
+       .service(update_student_log);
 }
