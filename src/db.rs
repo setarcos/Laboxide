@@ -702,22 +702,20 @@ pub async fn get_schedule_by_id(
     Ok(result)
 }
 
-pub async fn get_schedule_name(
+pub async fn get_schedule_by_week(
     pool: &SqlitePool,
     course_id: i64,
     week: i64,
-) -> Result<String, sqlx::Error> {
-    if let Some(result) = sqlx::query_scalar!(
-        "SELECT name FROM course_schedules WHERE course_id = ? AND week= ?",
+) -> Result<Option<CourseSchedule>, sqlx::Error> {
+    let result = sqlx::query_as!(
+        CourseSchedule,
+        "SELECT * FROM course_schedules WHERE course_id = ? AND week= ?",
         course_id,
         week
     )
     .fetch_optional(pool)
-    .await? {
-        Ok(result)
-    } else {
-        Err(sqlx::Error::RowNotFound)
-    }
+    .await?;
+    Ok(result)
 }
 
 pub async fn update_schedule(
@@ -910,9 +908,9 @@ pub async fn get_default_log(
         if let Some(semester) = get_semester_by_id(pool, semester_id).await? {
             let week = (today.date() - semester.start).num_weeks() + 1 + subcourse.lag_week;
             log.seat = get_student_seat(pool, stu_id, subcourse_id).await?;
-            match get_schedule_name(pool, subcourse.course_id, week).await {
-                Ok(name) => log.lab_name = name,
-                Err(sqlx::Error::RowNotFound) => {},
+            match get_schedule_by_week(pool, subcourse.course_id, week).await {
+                Ok(Some(sch)) => log.lab_name = sch.name,
+                Ok(None) => {},
                 Err(e) => return Err(e),
             }
         } else {
