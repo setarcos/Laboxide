@@ -79,3 +79,20 @@ CREATE TABLE IF NOT EXISTS student_logs (
     fin_time datetime NOT NULL,
     confirm INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS subschedules (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    schedule_id INTEGER NOT NULL REFERENCES course_schedules (id),
+    step INTEGER NOT NULL,
+    title VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS student_timelines (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    stu_id VARCHAR(10) NOT NULL,
+    tea_name VARCHAR(10) NOT NULL,
+    subsch_id INTEGER NOT NULL REFERENCES subschedules (id),
+    file_name VARCHAR(50) NOT NULL,
+    file_type INTEGER NOT NULL,
+    timestamp datetime NOT NULL,
+)

@@ -4,7 +4,7 @@ use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, StudentGroup, CourseSchedule, CourseFile};
-use crate::models::{StudentLog};
+use crate::models::{StudentLog, SubSchedule};
 use chrono::{Local, Duration};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
@@ -921,3 +921,77 @@ pub async fn get_default_log(
     }
     Ok(log)
 }
+
+pub async fn add_subschedule(pool: &SqlitePool, item: SubSchedule) -> Result<SubSchedule, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        SubSchedule,
+        r#"
+        INSERT INTO subschedules (schedule_id, step, title)
+        VALUES (?1, ?2, ?3)
+        RETURNING id, schedule_id, step, title
+        "#,
+        item.schedule_id,
+        item.step,
+        item.title
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn get_subschedule_by_id(pool: &SqlitePool, id: i64) -> Result<Option<SubSchedule>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        SubSchedule,
+        r#"SELECT id, schedule_id, step, title FROM subschedules WHERE id = ?"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_subschedules(pool: &SqlitePool, schedule_id: i64) -> Result<Vec<SubSchedule>, sqlx::Error> {
+    let recs = sqlx::query_as!(
+        SubSchedule,
+        r#"SELECT id, schedule_id, step, title FROM subschedules WHERE schedule_id = ?"#,
+        schedule_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(recs)
+}
+
+pub async fn update_subschedule(pool: &SqlitePool, id: i64, item: SubSchedule) -> Result<Option<SubSchedule>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        SubSchedule,
+        r#"
+        UPDATE subschedules
+        SET schedule_id = ?1, step = ?2, title = ?3
+        WHERE id = ?4
+        RETURNING id, schedule_id, step, title
+        "#,
+        item.schedule_id,
+        item.step,
+        item.title,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_subschedule(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM subschedules WHERE id = ?",
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+

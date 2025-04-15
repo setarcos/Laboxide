@@ -105,3 +105,11 @@ pub struct StudentLog {
     pub fin_time: NaiveDateTime,
     pub confirm: i64,
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct SubSchedule {
+    pub id: i64,
+    pub schedule_id: i64,
+    pub step: i64,
+    pub title: String,
+}

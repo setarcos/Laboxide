@@ -12,6 +12,8 @@ use crate::handler::group::{init_group_routes, remove_student, list_group, updat
 use crate::handler::schedule::{init_schedule_routes, list_schedules, get_schedule};
 use crate::handler::coursefile::{init_course_file_routes, list_course_files, download_course_file};
 use crate::handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log};
+use crate::handler::subschedule::{init_subschedule_routes, list_subschedules};
+
 use crate::config::PERMISSION_LAB_MANAGER;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
 use crate::middleware::CheckPermission;
@@ -71,6 +73,7 @@ async fn main() -> std::io::Result<()> {
                 .configure(init_subcourse_routes)
                 .configure(init_schedule_routes)
                 .configure(init_course_file_routes)
+                .configure(init_subschedule_routes)
                 .service(update_course)
                 .service(remove_student)
                 .service(update_student_seat)
@@ -93,6 +96,7 @@ async fn main() -> std::io::Result<()> {
                 .wrap(CheckPermission::new(PERMISSION_STUDENT | PERMISSION_TEACHER))
                 .service(list_group)
                 .service(download_course_file)
+                .service(list_subschedules)
             )
     })
     .bind("127.0.0.1:8080")?

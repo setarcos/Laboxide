@@ -8,3 +8,4 @@ pub mod group;
 pub mod schedule;
 pub mod coursefile;
 pub mod studentlog;
+pub mod subschedule;
