@@ -113,3 +113,16 @@ pub struct SubSchedule {
     pub step: i64,
     pub title: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct StudentTimeline {
+    pub id: i64,
+    pub stu_id: String,
+    pub tea_name: String,
+    pub schedule_id: i64,
+    pub subsch_id: i64,
+    pub subcourse_id: i64,
+    pub note: String, // can be a file path if type == 1
+    pub notetype: i64,  // 0 = text, 1 = file
+    pub timestamp: NaiveDateTime, // store as ISO string for JSON
+}

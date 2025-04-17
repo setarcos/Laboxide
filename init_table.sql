@@ -91,8 +91,10 @@ CREATE TABLE IF NOT EXISTS student_timelines (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     stu_id VARCHAR(10) NOT NULL,
     tea_name VARCHAR(10) NOT NULL,
+    schedule_id INTEGER NOT NULL REFERENCES course_schedules (id),
     subsch_id INTEGER NOT NULL REFERENCES subschedules (id),
-    file_name VARCHAR(50) NOT NULL,
-    file_type INTEGER NOT NULL,
-    timestamp datetime NOT NULL,
-)
+    subcourse_id INTEGER NOT NULL REFERENCES subcourses (id),
+    note VARCHAR(100) NOT NULL,
+    notetype INTEGER NOT NULL,
+    timestamp datetime NOT NULL
+);

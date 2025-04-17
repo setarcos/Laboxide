@@ -4,7 +4,7 @@ use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, StudentGroup, CourseSchedule, CourseFile};
-use crate::models::{StudentLog, SubSchedule};
+use crate::models::{StudentLog, SubSchedule, StudentTimeline};
 use chrono::{Local, Duration};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
@@ -995,3 +995,132 @@ pub async fn delete_subschedule(pool: &SqlitePool, id: i64) -> Result<bool, sqlx
     Ok(result.rows_affected() > 0)
 }
 
+// Operations for StudentTimeline
+pub async fn add_student_timeline(
+    pool: &SqlitePool,
+    timeline: StudentTimeline,
+) -> Result<StudentTimeline, sqlx::Error> {
+    let now = Local::now().naive_local();
+    let rec = sqlx::query_as!(
+        StudentTimeline,
+        r#"
+        INSERT INTO student_timelines
+        (stu_id, tea_name, schedule_id, subsch_id, subcourse_id, note, notetype, timestamp)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        RETURNING *
+        "#,
+        timeline.stu_id,
+        timeline.tea_name,
+        timeline.schedule_id,
+        timeline.subsch_id,
+        timeline.subcourse_id,
+        timeline.note,
+        timeline.notetype,
+        now
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn update_student_timeline(
+    pool: &SqlitePool,
+    id: i64,
+    timeline: StudentTimeline,
+) -> Result<Option<StudentTimeline>, sqlx::Error> {
+    let now = Local::now().naive_local();
+    let rec = sqlx::query_as!(
+        StudentTimeline,
+        r#"
+        UPDATE student_timelines
+        SET stu_id = ?1, tea_name = ?2, schedule_id = ?3, subsch_id = ?4,
+            subcourse_id = ?5, note = ?6, notetype = ?7, timestamp = ?8
+        WHERE id = ?9
+        RETURNING *
+        "#,
+        timeline.stu_id,
+        timeline.tea_name,
+        timeline.schedule_id,
+        timeline.subsch_id,
+        timeline.subcourse_id,
+        timeline.note,
+        timeline.notetype,
+        now,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_student_timeline(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM student_timelines WHERE id = ?1",
+        id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn list_timelines_by_schedule(
+    pool: &SqlitePool,
+    subcourse_id: i64,
+    schedule_id: i64,
+) -> Result<Vec<StudentTimeline>, sqlx::Error> {
+    let recs = sqlx::query_as!(
+        StudentTimeline,
+        r#"
+        SELECT * FROM student_timelines
+        WHERE schedule_id = ?1 AND subcourse_id = ?2
+        "#,
+        schedule_id,
+        subcourse_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(recs)
+}
+
+pub async fn list_timelines_by_student(
+    pool: &SqlitePool,
+    subcourse_id: i64,
+    stu_id: String,
+) -> Result<Vec<StudentTimeline>, sqlx::Error> {
+    let recs = sqlx::query_as!(
+        StudentTimeline,
+        r#"
+        SELECT * FROM student_timelines
+        WHERE stu_id = ?1 AND subcourse_id = ?2
+        "#,
+        stu_id,
+        subcourse_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(recs)
+}
+
+pub async fn get_timeline_by_id(
+    pool: &SqlitePool,
+    id: i64,
+) -> Result<Option<StudentTimeline>, sqlx::Error> {
+    let timeline = sqlx::query_as!(
+        StudentTimeline,
+        r#"
+        SELECT id, stu_id, tea_name, schedule_id, subsch_id, subcourse_id,
+               note, notetype, timestamp
+        FROM student_timelines WHERE id = ?
+        "#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(timeline)
+}

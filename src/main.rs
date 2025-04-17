@@ -13,6 +13,7 @@ use crate::handler::schedule::{init_schedule_routes, list_schedules, get_schedul
 use crate::handler::coursefile::{init_course_file_routes, list_course_files, download_course_file};
 use crate::handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log};
 use crate::handler::subschedule::{init_subschedule_routes, list_subschedules};
+use crate::handler::timeline::{init_timeline_routes, list_timelines_by_schedule};
 
 use crate::config::PERMISSION_LAB_MANAGER;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
@@ -78,6 +79,7 @@ async fn main() -> std::io::Result<()> {
                 .service(remove_student)
                 .service(update_student_seat)
                 .service(confirm_student_log)
+                .service(list_timelines_by_schedule)
             )
             .service(
                 web::scope("/lab")
@@ -94,6 +96,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/member")
                 .wrap(CheckPermission::new(PERMISSION_STUDENT | PERMISSION_TEACHER))
+                .configure(init_timeline_routes)
                 .service(list_group)
                 .service(download_course_file)
                 .service(list_subschedules)
