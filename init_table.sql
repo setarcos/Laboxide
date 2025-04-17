@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS student_timelines (
     stu_id VARCHAR(10) NOT NULL,
     tea_name VARCHAR(10) NOT NULL,
     schedule_id INTEGER NOT NULL REFERENCES course_schedules (id),
-    subsch_id INTEGER NOT NULL REFERENCES subschedules (id),
+    subsch_id INTEGER REFERENCES subschedules (id),
     subcourse_id INTEGER NOT NULL REFERENCES subcourses (id),
     note VARCHAR(100) NOT NULL,
     notetype INTEGER NOT NULL,

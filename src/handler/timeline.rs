@@ -54,7 +54,12 @@ pub async fn create_timeline(
             }
             "subsch_id" => {
                 let data = field.try_next().await.unwrap().unwrap();
-                subsch_id = Some(String::from_utf8_lossy(&data).parse::<i64>().unwrap_or(0));
+                let parsed = String::from_utf8_lossy(&data).trim().to_string();
+                subsch_id = if parsed.is_empty() {
+                    None
+                } else {
+                    parsed.parse::<i64>().ok()
+                };
             }
             "subcourse_id" => {
                 let data = field.try_next().await.unwrap().unwrap();
@@ -102,7 +107,7 @@ pub async fn create_timeline(
             Some(stu_id),
             Some(tea_name),
             Some(schedule_id),
-            Some(subsch_id),
+            subsch_id,
             Some(subcourse_id),
             Some(note),
             Some(note_type),
