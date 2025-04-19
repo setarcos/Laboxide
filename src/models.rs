@@ -120,7 +120,7 @@ pub struct StudentTimeline {
     pub stu_id: String,
     pub tea_name: String,
     pub schedule_id: i64,
-    pub subsch_id: Option<i64>,
+    pub subschedule: String,
     pub subcourse_id: i64,
     pub note: String, // can be a file path if type == 1
     pub notetype: i64,  // 0 = text, 1 = file

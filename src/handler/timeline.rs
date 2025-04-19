@@ -19,7 +19,7 @@ pub async fn create_timeline(
     let mut stu_id = None;
     let mut tea_name = None;
     let mut schedule_id = None;
-    let mut subsch_id = None;
+    let mut subschedule = None;
     let mut subcourse_id = None;
     let mut note_type = None;
     let mut timestamp: Option<NaiveDateTime> = None;
@@ -52,14 +52,9 @@ pub async fn create_timeline(
                 let data = field.try_next().await.unwrap().unwrap();
                 schedule_id = Some(String::from_utf8_lossy(&data).parse::<i64>().unwrap_or(0));
             }
-            "subsch_id" => {
+            "subschedule" => {
                 let data = field.try_next().await.unwrap().unwrap();
-                let parsed = String::from_utf8_lossy(&data).trim().to_string();
-                subsch_id = if parsed.is_empty() {
-                    None
-                } else {
-                    parsed.parse::<i64>().ok()
-                };
+                subschedule = Some(String::from_utf8_lossy(&data).to_string());
             }
             "subcourse_id" => {
                 let data = field.try_next().await.unwrap().unwrap();
@@ -97,7 +92,7 @@ pub async fn create_timeline(
         stu_id,
         tea_name,
         schedule_id,
-        subsch_id,
+        subschedule,
         subcourse_id,
         note_filename,
         note_type,
@@ -107,7 +102,7 @@ pub async fn create_timeline(
             Some(stu_id),
             Some(tea_name),
             Some(schedule_id),
-            subsch_id,
+            Some(subschedule),
             Some(subcourse_id),
             Some(note),
             Some(note_type),
@@ -118,7 +113,7 @@ pub async fn create_timeline(
                 stu_id,
                 tea_name,
                 schedule_id,
-                subsch_id,
+                subschedule,
                 subcourse_id,
                 note,
                 notetype: note_type,
