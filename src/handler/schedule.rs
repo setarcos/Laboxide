@@ -1,16 +1,42 @@
 use actix_web::{get, post, put, delete, web, HttpResponse, Responder};
 use serde_json::json;
 use sqlx::SqlitePool;
+use actix_session::Session;
 
 use crate::db;
 use crate::models::CourseSchedule;
+
+pub async fn check_perm(
+    db_pool: &web::Data<SqlitePool>,
+    session: &Session,
+    course_id: i64,
+) -> Result<(), HttpResponse> {
+    match db::get_course_by_id(db_pool, course_id).await {
+        Ok(Some(course)) => {
+            let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
+            if user_id != course.tea_id {
+                return Err(HttpResponse::Forbidden().json(json!({"error": "User ID mismatch"})));
+            }
+            Ok(())
+        }
+        Ok(None) => Err(HttpResponse::NotFound().json(json!({ "error": "Course not found" }))),
+        Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
+    }
+}
 
 #[post("/schedule")]
 pub async fn create_schedule(
     db_pool: web::Data<SqlitePool>,
     item: web::Json<CourseSchedule>,
+    session: Session,
 ) -> impl Responder {
-    match db::add_schedule(&db_pool, item.into_inner()).await {
+    let sch = item.into_inner();
+
+    if let Err(err_response) = check_perm(&db_pool, &session, sch.course_id).await {
+        return err_response;
+    }
+
+    match crate::db::add_schedule(&db_pool, sch).await {
         Ok(schedule) => HttpResponse::Ok().json(schedule),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
@@ -41,13 +67,32 @@ pub async fn get_schedule(
     }
 }
 
+pub async fn ensure_schedule_exists(
+    db_pool: &SqlitePool,
+    schedule_id: i64,
+) -> Result<CourseSchedule, HttpResponse> {
+    match crate::db::get_schedule_by_id(db_pool, schedule_id).await {
+        Ok(Some(schedule)) => Ok(schedule),
+        Ok(None) => Err(HttpResponse::NotFound().json(json!({ "error": "Schedule not found" }))),
+        Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
+    }
+}
+
 #[put("/schedule/{id}")]
 pub async fn update_schedule(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
     item: web::Json<CourseSchedule>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
+    let existing_schedule = match ensure_schedule_exists(&db_pool, id).await {
+        Ok(s) => s,
+        Err(resp) => return resp,
+    };
+    if let Err(err) = check_perm(&db_pool, &session, existing_schedule.course_id).await {
+        return err;
+    }
     match db::update_schedule(&db_pool, id, item.into_inner()).await {
         Ok(Some(schedule)) => HttpResponse::Ok().json(schedule),
         Ok(None) => HttpResponse::NotFound().json(json!({ "error": "CourseSchedule not found" })),
@@ -59,8 +104,16 @@ pub async fn update_schedule(
 pub async fn delete_schedule(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
+    let existing_schedule = match ensure_schedule_exists(&db_pool, id).await {
+        Ok(s) => s,
+        Err(resp) => return resp,
+    };
+    if let Err(err) = check_perm(&db_pool, &session, existing_schedule.course_id).await {
+        return err;
+    }
     match db::delete_schedule(&db_pool, id).await {
         Ok(true) => HttpResponse::Ok().json(json!({ "message": "CourseSchedule deleted" })),
         Ok(false) => HttpResponse::NotFound().json(json!({ "error": "CourseSchedule not found" })),
