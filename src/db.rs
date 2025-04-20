@@ -815,8 +815,10 @@ pub async fn delete_course_file(pool: &SqlitePool, id: i64) -> Result<bool, sqlx
 }
 
 // Operations for student_logs
-
 pub async fn add_student_log(pool: &SqlitePool, log: StudentLog) -> Result<StudentLog, sqlx::Error> {
+    if let Some(_) = find_recent_student_log(pool, &log.stu_id, log.subcourse_id).await? {
+        return Err(sqlx::Error::Protocol("Recent log already exists".into()));
+    }
     let now = Local::now().naive_local();
     let rec = sqlx::query_as!(
         StudentLog,
@@ -841,7 +843,7 @@ pub async fn update_student_log(pool: &SqlitePool, id: i64, log: StudentLog) -> 
         r#"
         UPDATE student_logs
         SET seat = ?1, note = ?2, fin_time = ?3, lab_name = ?4, fin_time = ?5
-        WHERE id = ?6
+        WHERE id = ?6 AND confirm = 0
         "#,
         log.seat, log.note, log.fin_time, log.lab_name, now, id
     )
@@ -865,14 +867,34 @@ pub async fn confirm_student_log(
     Ok(())
 }
 
-pub async fn get_default_log(
+pub async fn list_recent_logs(
     pool: &SqlitePool,
-    stu_id: &String,
-    subcourse_id: i64
-) -> Result<StudentLog, sqlx::Error> {
-    let today = Local::now().naive_local();
-    let five_hours_ago = today - Duration::hours(5);
-    if let Some(existing_log) = sqlx::query_as!(
+    subcourse_id: i64,
+) -> Result<Vec<StudentLog>, sqlx::Error> {
+    let now = Local::now().naive_local();
+    let since = now - Duration::hours(5);
+    sqlx::query_as!(
+        StudentLog,
+        r#"
+        SELECT * FROM student_logs
+        WHERE subcourse_id = ?1 AND fin_time >= ?2
+        ORDER BY seat
+        "#,
+        subcourse_id,
+        since
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn find_recent_student_log(
+    pool: &SqlitePool,
+    stu_id: &str,
+    subcourse_id: i64,
+) -> Result<Option<StudentLog>, sqlx::Error> {
+    let now = Local::now().naive_local();
+    let since = now - Duration::hours(5);
+    sqlx::query_as!(
         StudentLog,
         r#"
         SELECT id, stu_id, stu_name, subcourse_id, room_id, seat,
@@ -881,11 +903,21 @@ pub async fn get_default_log(
         WHERE stu_id = ?1 AND subcourse_id = ?2 AND fin_time >= ?3
         ORDER BY fin_time DESC LIMIT 1
         "#,
-        stu_id, subcourse_id, five_hours_ago
+        stu_id,
+        subcourse_id,
+        since
     )
     .fetch_optional(pool)
-    .await?
-    {
+    .await
+}
+
+pub async fn get_default_log(
+    pool: &SqlitePool,
+    stu_id: &String,
+    subcourse_id: i64
+) -> Result<StudentLog, sqlx::Error> {
+    let today = Local::now().naive_local();
+    if let Some(existing_log) = find_recent_student_log(pool, stu_id, subcourse_id).await? {
         return Ok(existing_log);
     }
     let mut log = StudentLog {

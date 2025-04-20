@@ -29,12 +29,24 @@ pub async fn update_student_log(
     }
 }
 
+#[get("/student_log/recent/{subcourse_id}")]
+pub async fn get_recent_logs(
+    db_pool: web::Data<SqlitePool>,
+    path: web::Path<i64>,
+) -> impl Responder {
+    let subcourse_id = path.into_inner();
+    match db::list_recent_logs(&db_pool, subcourse_id).await {
+        Ok(logs) => HttpResponse::Ok().json(logs),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string()})),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct TeacherConfirmRequest {
     pub tea_note: String,
 }
 
-#[put("/student_log/{id}/confirm")]
+#[put("/student_log/confirm/{id}")]
 pub async fn confirm_student_log(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,

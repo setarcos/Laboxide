@@ -11,7 +11,7 @@ use crate::handler::subcourse::{init_subcourse_routes, list_subcourses, list_my_
 use crate::handler::group::{init_group_routes, remove_student, list_group, update_student_seat};
 use crate::handler::schedule::{init_schedule_routes, list_schedules, get_schedule};
 use crate::handler::coursefile::{init_course_file_routes, list_course_files, download_course_file};
-use crate::handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log};
+use crate::handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log, get_recent_logs};
 use crate::handler::subschedule::{init_subschedule_routes, list_subschedules};
 use crate::handler::timeline::{init_timeline_routes, list_timelines_by_schedule};
 
@@ -79,6 +79,7 @@ async fn main() -> std::io::Result<()> {
                 .service(remove_student)
                 .service(update_student_seat)
                 .service(confirm_student_log)
+                .service(get_recent_logs)
                 .service(list_timelines_by_schedule)
             )
             .service(
