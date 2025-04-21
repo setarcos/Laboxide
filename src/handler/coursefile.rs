@@ -1,5 +1,6 @@
 use actix_multipart::Multipart;
 use actix_web::{get, post, web, delete, HttpResponse, Responder, HttpRequest};
+use actix_session::Session;
 use actix_files::NamedFile;
 use futures_util::TryStreamExt;
 use serde_json::json;
@@ -7,12 +8,14 @@ use sqlx::SqlitePool;
 use std::fs::File;
 use std::io::Write;
 
+use crate::utils::check_course_perm;
 use crate::db;
 
 #[post("/coursefile/upload")]
 pub async fn upload_course_file(
     db_pool: web::Data<SqlitePool>,
     mut payload: Multipart,
+    session: Session,
 ) -> impl Responder {
     use std::fs;
 
@@ -38,6 +41,12 @@ pub async fn upload_course_file(
         } else if name == "course_id" {
             let data = field.try_next().await.unwrap().unwrap();
             course_id = Some(String::from_utf8_lossy(&data).parse::<i64>().unwrap());
+        }
+    }
+
+    if let Some(cid) = course_id {
+        if let Err(err) = check_course_perm(&db_pool, &session, cid).await {
+            return err;
         }
     }
 
@@ -105,11 +114,15 @@ pub async fn list_course_files(
 pub async fn delete_course_file(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
 
     match db::get_course_file_by_id(&db_pool, id).await {
         Ok(Some(file)) => {
+            if let Err(err) = check_course_perm(&db_pool, &session, file.course_id).await {
+                return err;
+            }
             let file_path = format!("uploads/courses/{}/{}", file.course_id, file.fname);
             let _ = std::fs::remove_file(&file_path); // Ignore error if file doesn't exist
 
