@@ -5,6 +5,7 @@ use sqlx::SqlitePool;
 use serde::Deserialize;
 use crate::config::{PERMISSION_STUDENT, PERMISSION_TEACHER};
 use log::error;
+use crate::utils::check_course_perm;
 
 use crate::db;
 use crate::models::SubCourse;
@@ -13,8 +14,14 @@ use crate::models::SubCourse;
 pub async fn create_subcourse(
     db_pool: web::Data<SqlitePool>,
     item: web::Json<SubCourse>,
+    session: Session,
 ) -> impl Responder {
-    match db::add_subcourse(&db_pool, item.into_inner()).await {
+    let sub = item.into_inner();
+
+    if let Err(err) = check_course_perm(&db_pool, &session, sub.course_id).await {
+        return err;
+    }
+    match db::add_subcourse(&db_pool, sub).await {
         Ok(subcourse) => HttpResponse::Ok().json(subcourse),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
@@ -87,8 +94,16 @@ pub async fn update_subcourse(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
     item: web::Json<SubCourse>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
+    let sub = match ensure_subcourse_exists(&db_pool, id).await {
+        Ok(s) => s,
+        Err(resp) => return resp,
+    };
+    if let Err(err) = check_course_perm(&db_pool, &session, sub.course_id).await {
+        return err;
+    }
     match db::update_subcourse(&db_pool, id, item.into_inner()).await {
         Ok(Some(subcourse)) => HttpResponse::Ok().json(subcourse),
         Ok(None) => HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" })),
@@ -96,12 +111,32 @@ pub async fn update_subcourse(
     }
 }
 
+pub async fn ensure_subcourse_exists(
+    db_pool: &SqlitePool,
+    subcourse_id: i64,
+) -> Result<SubCourse, HttpResponse> {
+    match crate::db::get_subcourse_by_id(db_pool, subcourse_id).await {
+        Ok(Some(sub)) => Ok(sub),
+        Ok(None) => Err(HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" }))),
+        Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
+    }
+}
+
 #[delete("/subcourse/{id}")]
 pub async fn delete_subcourse(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
 ) -> impl Responder {
-    match db::delete_subcourse(&db_pool, path.into_inner()).await {
+    let id = path.into_inner();
+    let sub = match ensure_subcourse_exists(&db_pool, id).await {
+        Ok(s) => s,
+        Err(resp) => return resp,
+    };
+    if let Err(err) = check_course_perm(&db_pool, &session, sub.course_id).await {
+        return err;
+    }
+    match db::delete_subcourse(&db_pool, id).await {
         Ok(true) => HttpResponse::Ok().json(json!({ "message": "SubCourse deleted" })),
         Ok(false) => HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),

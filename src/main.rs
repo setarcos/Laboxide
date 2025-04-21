@@ -23,6 +23,7 @@ mod models;
 mod config;
 mod handler;
 mod middleware;
+mod utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
