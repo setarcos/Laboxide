@@ -852,6 +852,17 @@ pub async fn add_student_log(pool: &SqlitePool, log: StudentLog) -> Result<Stude
     Ok(rec)
 }
 
+pub async fn get_student_log_by_id(pool: &SqlitePool, id: i64) -> Result<Option<StudentLog>, sqlx::Error> {
+    let log = sqlx::query_as!(
+        StudentLog,
+        "SELECT * FROM student_logs WHERE id = ?",
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(log)
+}
+
 pub async fn update_student_log(pool: &SqlitePool, id: i64, log: StudentLog) -> Result<(), sqlx::Error> {
     let now = Local::now().naive_local();
     sqlx::query!(
@@ -870,12 +881,13 @@ pub async fn update_student_log(pool: &SqlitePool, id: i64, log: StudentLog) -> 
 pub async fn confirm_student_log(
     pool: &SqlitePool,
     id: i64,
-    tea_note: &String,
+    tea_note: &str,
+    tea_name: &str,
 ) -> Result<(), sqlx::Error> {
     let now = Local::now().naive_local();
     sqlx::query!(
-        "UPDATE student_logs SET tea_note = ?1, confirm = 1, fin_time = ?3 WHERE id = ?2 ",
-        tea_note, id, now
+        "UPDATE student_logs SET tea_note = ?1, confirm = 1, fin_time = ?3, tea_name = ?4 WHERE id = ?2 ",
+        tea_note, id, now, tea_name
     )
     .execute(pool)
     .await?;
@@ -928,7 +940,7 @@ pub async fn find_recent_student_log(
 
 pub async fn get_default_log(
     pool: &SqlitePool,
-    stu_id: &String,
+    stu_id: &str,
     subcourse_id: i64
 ) -> Result<StudentLog, sqlx::Error> {
     let today = Local::now().naive_local();

@@ -1,16 +1,33 @@
 use actix_web::{post, put, web, get, HttpResponse, Responder};
+use actix_session::Session;
 use serde_json::json;
 use sqlx::SqlitePool;
 use serde::Deserialize;
 use crate::db;
 use crate::models::StudentLog;
 
+pub fn check_stu_id(
+    session: &Session,
+    stu_id: &String,
+) -> Result<(), HttpResponse> {
+    let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
+    if user_id != *stu_id {
+        return Err(HttpResponse::Forbidden().json(json!({"error": "Can't use a different ID"})));
+    }
+    Ok(())
+}
+
 #[post("/student_log")]
 pub async fn create_student_log(
     db_pool: web::Data<SqlitePool>,
     item: web::Json<StudentLog>,
+    session: Session,
 ) -> impl Responder {
-    match db::add_student_log(&db_pool, item.into_inner()).await {
+    let log = item.into_inner();
+    if let Err(err) = check_stu_id(&session, &log.stu_id) {
+        return err;
+    }
+    match db::add_student_log(&db_pool, log).await {
         Ok(log) => HttpResponse::Ok().json(log),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
@@ -21,11 +38,23 @@ pub async fn update_student_log(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
     item: web::Json<StudentLog>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
-    match db::update_student_log(&db_pool, id, item.into_inner()).await {
-        Ok(()) => HttpResponse::Ok().json(json!({"status": "updated"})),
-        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    let newlog = item.into_inner();
+    if let Err(err) = check_stu_id(&session, &newlog.stu_id) {
+        return err;
+    }
+    if let Ok(Some(log)) = db::get_student_log_by_id(&db_pool, id).await {
+        if newlog.stu_id != log.stu_id {
+            return HttpResponse::Forbidden().json(json!({"error": "Can't use a different ID"}));
+        }
+        match db::update_student_log(&db_pool, id, newlog).await {
+            Ok(()) => HttpResponse::Ok().json(json!({"status": "updated"})),
+            Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+        }
+    } else {
+        return HttpResponse::Forbidden().json(json!({"error": "No log found."}));
     }
 }
 
@@ -51,9 +80,12 @@ pub async fn confirm_student_log(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
     item: web::Json<TeacherConfirmRequest>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
-    match db::confirm_student_log(&db_pool, id, &item.into_inner().tea_note).await {
+    let log = item.into_inner();
+    let realname: String = session.get::<String>("realname").ok().flatten().unwrap_or_default();
+    match db::confirm_student_log(&db_pool, id, &log.tea_note, &realname).await {
         Ok(_) => HttpResponse::Ok().json(json!({ "status": "confirmed" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
