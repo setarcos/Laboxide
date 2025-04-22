@@ -3,7 +3,7 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use log::error;
 use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
-use crate::models::{SubCourse, SubCourseWithName, StudentGroup, CourseSchedule, CourseFile};
+use crate::models::{SubCourse, SubCourseWithName, Student, CourseSchedule, CourseFile};
 use crate::models::{StudentLog, SubSchedule, StudentTimeline};
 use chrono::{Local, Duration};
 
@@ -480,7 +480,7 @@ pub async fn add_student_to_group( pool: &SqlitePool, stu_id: &str,
 
     // Check if the student is already in the group
     let existing: i64 = sqlx::query_scalar!(
-        "SELECT COUNT(*) FROM student_groups WHERE subcourse_id = ? AND stu_id = ?",
+        "SELECT COUNT(*) FROM students WHERE subcourse_id = ? AND stu_id = ?",
         subcourse_id,
         stu_id
     )
@@ -492,7 +492,7 @@ pub async fn add_student_to_group( pool: &SqlitePool, stu_id: &str,
     }
     // Fetch current count
     let count = sqlx::query_scalar!(
-        "SELECT COUNT(*) FROM student_groups WHERE subcourse_id = ?",
+        "SELECT COUNT(*) FROM students WHERE subcourse_id = ?",
         subcourse_id
     )
     .fetch_one(&mut *tx)
@@ -513,9 +513,9 @@ pub async fn add_student_to_group( pool: &SqlitePool, stu_id: &str,
     // Insert student with computed seat in one go
     sqlx::query!(
         r#"
-        INSERT INTO student_groups (stu_id, stu_name, seat, subcourse_id)
+        INSERT INTO students (stu_id, stu_name, seat, subcourse_id)
         SELECT ?1, ?2, IFNULL(MAX(seat), 0) + 1, ?3
-        FROM student_groups
+        FROM students
         WHERE subcourse_id = ?3
         "#,
         stu_id,
@@ -535,7 +535,7 @@ pub async fn remove_student_from_group(
     subcourse_id: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "DELETE FROM student_groups WHERE stu_id = ? AND subcourse_id = ?",
+        "DELETE FROM students WHERE stu_id = ? AND subcourse_id = ?",
         stu_id,
         subcourse_id
     )
@@ -550,7 +550,7 @@ pub async fn set_student_seat(
     seat: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE student_groups SET seat = ?1 WHERE id = ?2",
+        "UPDATE students SET seat = ?1 WHERE id = ?2",
         seat,
         group_id
     )
@@ -565,7 +565,7 @@ pub async fn get_student_seat(
     subcourse_id: i64,
 ) -> Result<i64, sqlx::Error> {
     if let Some(seat) = sqlx::query_scalar!(
-        "SELECT seat FROM student_groups WHERE stu_id = ?1 AND subcourse_id = ?2",
+        "SELECT seat FROM students WHERE stu_id = ?1 AND subcourse_id = ?2",
         stu_id, subcourse_id
     )
     .fetch_optional(pool)
@@ -579,16 +579,31 @@ pub async fn get_student_seat(
 pub async fn get_group_by_subcourse_id(
     pool: &SqlitePool,
     subcourse_id: i64,
-) -> Result<Vec<StudentGroup>, sqlx::Error> {
+) -> Result<Vec<Student>, sqlx::Error> {
     let rows = sqlx::query_as!(
-        StudentGroup,
-        "SELECT id, stu_id, stu_name, seat, subcourse_id FROM student_groups WHERE subcourse_id = ? ORDER BY seat",
+        Student,
+        "SELECT id, stu_id, stu_name, seat, subcourse_id FROM students WHERE subcourse_id = ? ORDER BY seat",
         subcourse_id
     )
     .fetch_all(pool)
     .await?;
 
     Ok(rows)
+}
+
+pub async fn get_student_by_group_id(
+    pool: &SqlitePool,
+    group_id: i64,
+) -> Result<Option<Student>, sqlx::Error> {
+    let student = sqlx::query_as!(
+        Student,
+        "SELECT id, stu_id, stu_name, seat, subcourse_id FROM students WHERE id = ?",
+        group_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(student)
 }
 
 pub async fn list_student_subcourses(
@@ -603,7 +618,7 @@ pub async fn list_student_subcourses(
                 s.id, s.weekday, r.room AS room_name, s.tea_name, s.tea_id, s.year_id,
                 s.stu_limit, s.course_id, s.lag_week, c.name AS course_name
             FROM subcourses s
-            JOIN student_groups sg ON sg.subcourse_id = s.id
+            JOIN students sg ON sg.subcourse_id = s.id
             JOIN courses c ON s.course_id = c.id
             JOIN labrooms r ON s.room_id = r.id
             WHERE sg.stu_id = ?1 AND s.year_id = ?2

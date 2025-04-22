@@ -4,6 +4,7 @@ use sqlx::SqlitePool;
 use serde_json::json;
 use crate::db;
 use log::error;
+use crate::utils::check_subcourse_perm;
 
 // Add current user to group
 #[post("/group/join/{subcourse_id}")]
@@ -79,9 +80,13 @@ pub async fn list_group(
 pub async fn remove_student(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<(i64, String)>,
+    session: Session,
 ) -> impl Responder {
     let (subcourse_id, stu_id) = path.into_inner();
 
+    if let Err(err) = check_subcourse_perm(&db_pool, &session, subcourse_id).await {
+        return err;
+    }
     match db::remove_student_from_group(&db_pool, &stu_id, subcourse_id).await {
         Ok(_) => HttpResponse::Ok().json(json!({ "status": "student removed" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
@@ -92,12 +97,20 @@ pub async fn remove_student(
 pub async fn update_student_seat(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<(i64, i64)>,
+    session: Session,
 ) -> impl Responder {
     let (group_id, seat) = path.into_inner();
 
-    match db::set_student_seat(&db_pool, group_id, seat).await {
-        Ok(_) => HttpResponse::Ok().json(json!({ "message": "Seat updated successfully" })),
-        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    if let Ok(Some(student)) = db::get_student_by_group_id(&db_pool, group_id).await {
+        if let Err(err) = check_subcourse_perm(&db_pool, &session, student.subcourse_id).await {
+            return err;
+        }
+        match db::set_student_seat(&db_pool, group_id, seat).await {
+            Ok(_) => HttpResponse::Ok().json(json!({ "message": "Seat updated successfully" })),
+            Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+        }
+    } else {
+        HttpResponse::NotFound().json(json!({ "error": "Student not found" }))
     }
 }
 

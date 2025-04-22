@@ -53,7 +53,7 @@ pub async fn ensure_schedule_exists(
     db_pool: &SqlitePool,
     schedule_id: i64,
 ) -> Result<CourseSchedule, HttpResponse> {
-    match crate::db::get_schedule_by_id(db_pool, schedule_id).await {
+    match db::get_schedule_by_id(db_pool, schedule_id).await {
         Ok(Some(schedule)) => Ok(schedule),
         Ok(None) => Err(HttpResponse::NotFound().json(json!({ "error": "Schedule not found" }))),
         Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
