@@ -1,4 +1,5 @@
-use actix_web::{post, put, delete, get, web, HttpResponse, Responder, HttpRequest};
+use actix_session::Session;
+use actix_web::{post, delete, get, web, HttpResponse, Responder, HttpRequest};
 use actix_multipart::Multipart;
 use actix_files::NamedFile;
 use futures_util::TryStreamExt;
@@ -15,6 +16,7 @@ use crate::db;
 pub async fn create_timeline(
     db_pool: web::Data<SqlitePool>,
     mut payload: Multipart,
+    session: Session,
 ) -> impl Responder {
     let mut stu_id = None;
     let mut tea_name = None;
@@ -26,6 +28,7 @@ pub async fn create_timeline(
 
     let mut note_filename = None;
     let mut file_bytes = vec![];
+    let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
 
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_disposition = field.content_disposition();
@@ -77,7 +80,9 @@ pub async fn create_timeline(
             _ => {}
         }
     }
-
+    if stu_id.as_deref() != Some(&user_id) {
+        return HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" }));
+    }
     // Save file if it's a file note
     if note_type == Some(1) && note_filename.is_some() && stu_id.is_some() {
         let upload_dir = format!("uploads/courses/{}", stu_id.as_ref().unwrap());
@@ -132,7 +137,7 @@ pub async fn create_timeline(
 async fn check_timeline_permission(
     db_pool: &SqlitePool,
     id: i64,
-    session: &actix_session::Session,
+    session: &Session,
 ) -> Result<StudentTimeline, HttpResponse> {
     let timeline = db::get_timeline_by_id(db_pool, id).await.map_err(|e| {
         HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))
@@ -156,32 +161,11 @@ async fn check_timeline_permission(
     Ok(timeline)
 }
 
-#[put("/timeline/{id}")]
-pub async fn update_timeline(
-    db_pool: web::Data<SqlitePool>,
-    path: web::Path<i64>,
-    item: web::Json<StudentTimeline>,
-    session: actix_session::Session,
-) -> impl Responder {
-    let id = path.into_inner();
-
-    match check_timeline_permission(&db_pool, id, &session).await {
-        Ok(_) => {
-            match db::update_student_timeline(&db_pool, id, item.into_inner()).await {
-                Ok(Some(updated)) => HttpResponse::Ok().json(updated),
-                Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Timeline not found" })),
-                Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
-            }
-        }
-        Err(resp) => resp,
-    }
-}
-
 #[delete("/timeline/{id}")]
 pub async fn delete_timeline(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
-    session: actix_session::Session,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
 
@@ -249,8 +233,7 @@ pub async fn download_timeline_file(
 }
 
 pub fn init_timeline_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(update_timeline)
-       .service(create_timeline)
+    cfg.service(create_timeline)
        .service(list_timelines_by_student)
        .service(download_timeline_file)
        .service(delete_timeline);
