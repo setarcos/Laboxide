@@ -7,8 +7,8 @@ use serde_json::json;
 use sqlx::SqlitePool;
 use std::fs;
 use std::io::Write;
-use chrono::NaiveDateTime;
 
+use crate::config::PERMISSION_TEACHER;
 use crate::models::StudentTimeline;
 use crate::db;
 
@@ -24,11 +24,11 @@ pub async fn create_timeline(
     let mut subschedule = None;
     let mut subcourse_id = None;
     let mut note_type = None;
-    let mut timestamp: Option<NaiveDateTime> = None;
 
     let mut note_filename = None;
     let mut file_bytes = vec![];
     let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
 
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_disposition = field.content_disposition();
@@ -67,10 +67,6 @@ pub async fn create_timeline(
                 let data = field.try_next().await.unwrap().unwrap();
                 note_type = Some(String::from_utf8_lossy(&data).parse::<i64>().unwrap_or(0));
             }
-            "timestamp" => {
-                let data = field.try_next().await.unwrap().unwrap();
-                timestamp = NaiveDateTime::parse_from_str(&String::from_utf8_lossy(&data), "%Y-%m-%d %H:%M:%S").ok();
-            }
             "note" => {
                 if note_type.unwrap_or(0) != 1 {
                     let data = field.try_next().await.unwrap().unwrap();
@@ -80,7 +76,7 @@ pub async fn create_timeline(
             _ => {}
         }
     }
-    if stu_id.as_deref() != Some(&user_id) {
+    if (permission & PERMISSION_TEACHER == 0) && stu_id.as_deref() != Some(&user_id) {
         return HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" }));
     }
     // Save file if it's a file note
@@ -101,7 +97,6 @@ pub async fn create_timeline(
         subcourse_id,
         note_filename,
         note_type,
-        timestamp,
     ) {
         (
             Some(stu_id),
@@ -111,7 +106,6 @@ pub async fn create_timeline(
             Some(subcourse_id),
             Some(note),
             Some(note_type),
-            Some(timestamp),
         ) => {
             let new_timeline = StudentTimeline {
                 id: 0,
@@ -122,7 +116,7 @@ pub async fn create_timeline(
                 subcourse_id,
                 note,
                 notetype: note_type,
-                timestamp,
+                timestamp: chrono::Local::now().naive_local(),
             };
 
             match db::add_student_timeline(&db_pool, new_timeline).await {
