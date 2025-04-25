@@ -23,10 +23,11 @@ pub async fn create_student_log(
     item: web::Json<StudentLog>,
     session: Session,
 ) -> impl Responder {
-    let log = item.into_inner();
+    let mut log = item.into_inner();
     if let Err(err) = check_stu_id(&session, &log.stu_id) {
         return err;
     }
+    log.confirm = 0; // make sure it's not confirmed.
     match db::add_student_log(&db_pool, log).await {
         Ok(log) => HttpResponse::Ok().json(log),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
@@ -73,6 +74,27 @@ pub async fn get_recent_logs(
 #[derive(Debug, Deserialize)]
 pub struct TeacherConfirmRequest {
     pub tea_note: String,
+}
+
+#[put("/student_log/force/{subcourse_id}/{stu_id}")]
+pub async fn force_student_log(
+    db_pool: web::Data<SqlitePool>,
+    path: web::Path<(i64, String)>,
+    session: Session,
+) -> impl Responder {
+    let (subcourse_id, stu_id) = path.into_inner();
+    let realname: String = session.get::<String>("realname").ok().flatten().unwrap_or_default();
+    if let Ok(mut log) = db::get_default_log(&db_pool, &stu_id, subcourse_id).await {
+        log.confirm = 1;
+        log.tea_name = realname;
+        log.tea_note = "Log by T".to_string();
+        match db::add_student_log(&db_pool, log).await {
+            Ok(log) => HttpResponse::Ok().json(log),
+            Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+        }
+    } else {
+        HttpResponse::InternalServerError().json(json!({ "error": "Create log failed." }))
+    }
 }
 
 #[put("/student_log/confirm/{id}")]

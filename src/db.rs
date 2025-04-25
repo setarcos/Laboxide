@@ -841,11 +841,11 @@ pub async fn add_student_log(pool: &SqlitePool, log: StudentLog) -> Result<Stude
         INSERT INTO student_logs (
             stu_id, stu_name, subcourse_id, room_id, seat,
             lab_name, note, tea_note, tea_name, fin_time, confirm
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0)
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
         RETURNING *
         "#,
         log.stu_id, log.stu_name, log.subcourse_id, log.room_id, log.seat,
-        log.lab_name, log.note, log.tea_note, log.tea_name, now
+        log.lab_name, log.note, log.tea_note, log.tea_name, now, log.confirm
     )
     .fetch_one(pool)
     .await?;
