@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS subschedules (
 CREATE TABLE IF NOT EXISTS student_timelines (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     stu_id VARCHAR(10) NOT NULL,
-    tea_name VARCHAR(10) NOT NULL,
+    tea_id VARCHAR(10) NOT NULL,
     schedule_id INTEGER NOT NULL,
     subschedule VARCHAR(50) NOT NULL,
     subcourse_id INTEGER NOT NULL REFERENCES subcourses (id),

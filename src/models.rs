@@ -118,7 +118,7 @@ pub struct SubSchedule {
 pub struct StudentTimeline {
     pub id: i64,
     pub stu_id: String,
-    pub tea_name: String,
+    pub tea_id: String,
     pub schedule_id: i64,
     pub subschedule: String,
     pub subcourse_id: i64,

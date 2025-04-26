@@ -19,7 +19,7 @@ pub async fn create_timeline(
     session: Session,
 ) -> impl Responder {
     let mut stu_id = None;
-    let mut tea_name = None;
+    let mut tea_id = None;
     let mut schedule_id = None;
     let mut subschedule = None;
     let mut subcourse_id = None;
@@ -47,9 +47,9 @@ pub async fn create_timeline(
                 let data = field.try_next().await.unwrap().unwrap();
                 stu_id = Some(String::from_utf8_lossy(&data).to_string());
             }
-            "tea_name" => {
+            "tea_id" => {
                 let data = field.try_next().await.unwrap().unwrap();
-                tea_name = Some(String::from_utf8_lossy(&data).to_string());
+                tea_id = Some(String::from_utf8_lossy(&data).to_string());
             }
             "schedule_id" => {
                 let data = field.try_next().await.unwrap().unwrap();
@@ -91,7 +91,7 @@ pub async fn create_timeline(
 
     match (
         stu_id,
-        tea_name,
+        tea_id,
         schedule_id,
         subschedule,
         subcourse_id,
@@ -100,7 +100,7 @@ pub async fn create_timeline(
     ) {
         (
             Some(stu_id),
-            Some(tea_name),
+            Some(tea_id),
             Some(schedule_id),
             Some(subschedule),
             Some(subcourse_id),
@@ -110,7 +110,7 @@ pub async fn create_timeline(
             let new_timeline = StudentTimeline {
                 id: 0,
                 stu_id,
-                tea_name,
+                tea_id,
                 schedule_id,
                 subschedule,
                 subcourse_id,
@@ -143,10 +143,9 @@ async fn check_timeline_permission(
     };
 
     let user_id: Option<String> = session.get("user_id").unwrap_or(None);
-    let realname: Option<String> = session.get("realname").unwrap_or(None);
 
     let is_student = user_id.as_deref() == Some(&timeline.stu_id);
-    let is_teacher = realname.as_deref() == Some(&timeline.tea_name);
+    let is_teacher = user_id.as_deref() == Some(&timeline.tea_id);
 
     if !(is_student || is_teacher) {
         return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })));

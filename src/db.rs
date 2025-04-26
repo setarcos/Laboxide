@@ -1064,12 +1064,12 @@ pub async fn add_student_timeline(
         StudentTimeline,
         r#"
         INSERT INTO student_timelines
-        (stu_id, tea_name, schedule_id, subschedule, subcourse_id, note, notetype, timestamp)
+        (stu_id, tea_id, schedule_id, subschedule, subcourse_id, note, notetype, timestamp)
         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         RETURNING *
         "#,
         timeline.stu_id,
-        timeline.tea_name,
+        timeline.tea_id,
         timeline.schedule_id,
         timeline.subschedule,
         timeline.subcourse_id,
@@ -1093,13 +1093,13 @@ pub async fn update_student_timeline(
         StudentTimeline,
         r#"
         UPDATE student_timelines
-        SET stu_id = ?1, tea_name = ?2, schedule_id = ?3, subschedule = ?4,
+        SET stu_id = ?1, tea_id = ?2, schedule_id = ?3, subschedule = ?4,
             subcourse_id = ?5, note = ?6, notetype = ?7, timestamp = ?8
         WHERE id = ?9
         RETURNING *
         "#,
         timeline.stu_id,
-        timeline.tea_name,
+        timeline.tea_id,
         timeline.schedule_id,
         timeline.subschedule,
         timeline.subcourse_id,
@@ -1172,7 +1172,7 @@ pub async fn get_timeline_by_id(
     let timeline = sqlx::query_as!(
         StudentTimeline,
         r#"
-        SELECT id, stu_id, tea_name, schedule_id, subschedule, subcourse_id,
+        SELECT id, stu_id, tea_id, schedule_id, subschedule, subcourse_id,
                note, notetype, timestamp
         FROM student_timelines WHERE id = ?
         "#,
