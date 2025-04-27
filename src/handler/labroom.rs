@@ -62,7 +62,7 @@ pub async fn delete_labroom(
     match db::delete_labroom(&db_pool, id).await {
         Ok(true) => HttpResponse::Ok().json(json!({ "message": "Labroom deleted" })),
         Ok(false) => HttpResponse::NotFound().json(json!({ "error": "Labroom not found" })),
-        Err(_) => HttpResponse::InternalServerError().json(json!({ "error": "Failed to delete labroom" })),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
