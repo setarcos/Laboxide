@@ -257,13 +257,14 @@ pub async fn add_labroom(pool: &SqlitePool, labroom: Labroom) -> Result<Labroom,
     let rec = sqlx::query_as!(
         Labroom,
         r#"
-        INSERT INTO labrooms (room, name, manager)
-        VALUES (?1, ?2, ?3)
-        RETURNING id, room, name, manager
+        INSERT INTO labrooms (room, name, manager, tea_id)
+        VALUES (?1, ?2, ?3, ?4)
+        RETURNING id, room, name, manager, tea_id
         "#,
         labroom.room,
         labroom.name,
-        labroom.manager
+        labroom.manager,
+        labroom.tea_id
     )
     .fetch_one(pool)
     .await?;
@@ -274,7 +275,7 @@ pub async fn add_labroom(pool: &SqlitePool, labroom: Labroom) -> Result<Labroom,
 pub async fn list_labrooms(pool: &SqlitePool) -> Result<Vec<Labroom>, sqlx::Error> {
     let labrooms = sqlx::query_as!(
         Labroom,
-        r#"SELECT id, room, name, manager FROM labrooms"#
+        r#"SELECT id, room, name, manager, tea_id FROM labrooms"#
     )
     .fetch_all(pool)
     .await?;
@@ -285,7 +286,7 @@ pub async fn list_labrooms(pool: &SqlitePool) -> Result<Vec<Labroom>, sqlx::Erro
 pub async fn get_labroom_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Labroom>, sqlx::Error> {
     let labroom = sqlx::query_as!(
         Labroom,
-        r#"SELECT id, room, name, manager FROM labrooms WHERE id = ?"#,
+        r#"SELECT id, room, name, manager, tea_id FROM labrooms WHERE id = ?"#,
         id
     )
     .fetch_optional(pool)
@@ -299,13 +300,14 @@ pub async fn update_labroom(pool: &SqlitePool, id: i64, labroom: Labroom) -> Res
         Labroom,
         r#"
         UPDATE labrooms
-        SET room = ?1, name = ?2, manager = ?3
-        WHERE id = ?4
-        RETURNING id, room, name, manager
+        SET room = ?1, name = ?2, manager = ?3, tea_id = ?4
+        WHERE id = ?5
+        RETURNING id, room, name, manager, tea_id
         "#,
         labroom.room,
         labroom.name,
         labroom.manager,
+        labroom.tea_id,
         id
     )
     .fetch_optional(pool)

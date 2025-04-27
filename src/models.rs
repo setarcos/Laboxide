@@ -35,6 +35,7 @@ pub struct Labroom{
     pub room: String,
     pub name: String,
     pub manager: String,
+    pub tea_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
