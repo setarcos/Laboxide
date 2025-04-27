@@ -8,9 +8,10 @@ use sqlx::SqlitePool;
 use std::fs;
 use std::io::Write;
 
-use crate::config::PERMISSION_TEACHER;
+use crate::config::{PERMISSION_TEACHER, PERMISSION_ADMIN};
 use crate::models::StudentTimeline;
 use crate::db;
+use crate::utils::check_subcourse_perm;
 
 #[post("/timeline")]
 pub async fn create_timeline(
@@ -142,12 +143,14 @@ async fn check_timeline_permission(
         None => return Err(HttpResponse::NotFound().json(json!({ "error": "Timeline not found" }))),
     };
 
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     let user_id: Option<String> = session.get("user_id").unwrap_or(None);
 
     let is_student = user_id.as_deref() == Some(&timeline.stu_id);
     let is_teacher = user_id.as_deref() == Some(&timeline.tea_id);
+    let is_admin = permission & PERMISSION_ADMIN != 0;
 
-    if !(is_student || is_teacher) {
+    if !(is_student || is_teacher || is_admin) {
         return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })));
     }
 
@@ -195,9 +198,13 @@ pub async fn list_timelines_by_schedule(
 pub async fn list_timelines_by_student(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<(i64, String)>,
+    session: Session,
 ) -> impl Responder {
     let (subcourse_id, stu_id) = path.into_inner();
-    match db::list_timelines_by_student(&db_pool, subcourse_id, stu_id).await {
+    if let Err(err) = check_subcourse_perm(&db_pool, &session, subcourse_id).await {
+        return err;
+    }
+    match db::list_timelines_by_student(&db_pool, subcourse_id, &stu_id).await {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }

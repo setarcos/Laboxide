@@ -1150,7 +1150,7 @@ pub async fn list_timelines_by_schedule(
 pub async fn list_timelines_by_student(
     pool: &SqlitePool,
     subcourse_id: i64,
-    stu_id: String,
+    stu_id: &str,
 ) -> Result<Vec<StudentTimeline>, sqlx::Error> {
     let recs = sqlx::query_as!(
         StudentTimeline,
