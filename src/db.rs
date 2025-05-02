@@ -927,7 +927,7 @@ pub async fn get_student_log_by_schedule(
         SELECT sl.*
         FROM student_logs sl
         JOIN course_schedules cs ON sl.lab_name = cs.name
-        WHERE cs.id = ? AND sl.stu_id = ?
+        WHERE cs.id = ? AND sl.stu_id = ? LIMIT 1
         "#,
         schedule_id,
         stu_id
