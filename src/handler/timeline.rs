@@ -9,7 +9,7 @@ use std::fs;
 use std::io::Write;
 
 use crate::config::{PERMISSION_TEACHER, PERMISSION_ADMIN};
-use crate::models::{StudentTimeline, StudentLog};
+use crate::models::StudentTimeline;
 use crate::db;
 use crate::utils::check_subcourse_perm;
 

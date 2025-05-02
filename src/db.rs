@@ -1127,37 +1127,6 @@ pub async fn count_student_timeline_entries(
     Ok(count)
 }
 
-pub async fn update_student_timeline(
-    pool: &SqlitePool,
-    id: i64,
-    timeline: StudentTimeline,
-) -> Result<Option<StudentTimeline>, sqlx::Error> {
-    let now = Local::now().naive_local();
-    let rec = sqlx::query_as!(
-        StudentTimeline,
-        r#"
-        UPDATE student_timelines
-        SET stu_id = ?1, tea_id = ?2, schedule_id = ?3, subschedule = ?4,
-            subcourse_id = ?5, note = ?6, notetype = ?7, timestamp = ?8
-        WHERE id = ?9
-        RETURNING *
-        "#,
-        timeline.stu_id,
-        timeline.tea_id,
-        timeline.schedule_id,
-        timeline.subschedule,
-        timeline.subcourse_id,
-        timeline.note,
-        timeline.notetype,
-        now,
-        id
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(rec)
-}
-
 pub async fn delete_student_timeline(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
     let result = sqlx::query!(
         "DELETE FROM student_timelines WHERE id = ?1",
