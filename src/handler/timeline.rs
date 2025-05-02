@@ -9,7 +9,7 @@ use std::fs;
 use std::io::Write;
 
 use crate::config::{PERMISSION_TEACHER, PERMISSION_ADMIN};
-use crate::models::StudentTimeline;
+use crate::models::{StudentTimeline, StudentLog};
 use crate::db;
 use crate::utils::check_subcourse_perm;
 
@@ -77,8 +77,17 @@ pub async fn create_timeline(
             _ => {}
         }
     }
-    if (permission & PERMISSION_TEACHER == 0) && stu_id.as_deref() != Some(&user_id) {
-        return HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" }));
+    if let (Some(stu_id), Some(schedule_id)) = (&stu_id, schedule_id) {
+        if (permission & PERMISSION_TEACHER == 0) && stu_id != &user_id {
+            return HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" }));
+        }
+        if let Ok(count) = db::count_student_timeline_entries(&db_pool, &stu_id, schedule_id).await {
+            if count > 100 {
+                return HttpResponse::Unauthorized().json(json!({ "error": "Too many entries." }));
+            }
+        }
+    } else {
+        return HttpResponse::BadRequest().json(json!({ "error": "Missing required parameters" }));
     }
     // Save file if it's a file note
     if note_type == Some(1) && note_filename.is_some() && stu_id.is_some() {
@@ -149,6 +158,14 @@ async fn check_timeline_permission(
     let is_student = user_id.as_deref() == Some(&timeline.stu_id);
     let is_teacher = user_id.as_deref() == Some(&timeline.tea_id);
     let is_admin = permission & PERMISSION_ADMIN != 0;
+
+    if is_student {
+        if let Ok(Some(log)) = db::get_student_log_by_schedule(&db_pool, &timeline.stu_id, timeline.schedule_id).await {
+            if log.confirm == 1 {
+                return Err(HttpResponse::Unauthorized().json(json!({ "error": "Can't delete after confirmation." })));
+            }
+        }
+    }
 
     if !(is_student || is_teacher || is_admin) {
         return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })));

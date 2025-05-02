@@ -916,6 +916,28 @@ pub async fn list_recent_logs(
     .await
 }
 
+pub async fn get_student_log_by_schedule(
+    pool: &SqlitePool,
+    stu_id: &str,
+    schedule_id: i64,
+) -> Result<Option<StudentLog>, sqlx::Error> {
+    let result = sqlx::query_as!(
+        StudentLog,
+        r#"
+        SELECT sl.*
+        FROM student_logs sl
+        JOIN course_schedules cs ON sl.lab_name = cs.name
+        WHERE cs.id = ? AND sl.stu_id = ?
+        "#,
+        schedule_id,
+        stu_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(result)
+}
+
 pub async fn find_recent_student_log(
     pool: &SqlitePool,
     stu_id: &str,
@@ -1083,6 +1105,26 @@ pub async fn add_student_timeline(
     .await?;
 
     Ok(rec)
+}
+
+pub async fn count_student_timeline_entries(
+    pool: &SqlitePool,
+    stu_id: &str,
+    schedule_id: i64,
+) -> Result<i64, sqlx::Error> {
+    let count = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) as count
+        FROM student_timelines
+        WHERE stu_id = ?1 AND schedule_id = ?2
+        "#,
+        stu_id,
+        schedule_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(count)
 }
 
 pub async fn update_student_timeline(
