@@ -1162,20 +1162,39 @@ pub async fn list_timelines_by_student(
     pool: &SqlitePool,
     subcourse_id: i64,
     stu_id: &str,
+    tea_id: &str,
 ) -> Result<Vec<StudentTimeline>, sqlx::Error> {
-    let recs = sqlx::query_as!(
-        StudentTimeline,
-        r#"
-        SELECT * FROM student_timelines
-        WHERE stu_id = ?1 AND subcourse_id = ?2
-        "#,
-        stu_id,
-        subcourse_id
-    )
-    .fetch_all(pool)
-    .await?;
-
-    Ok(recs)
+    if let Some(subcourse) = get_subcourse_by_id(pool, subcourse_id).await? {
+        let recs = if tea_id == subcourse.tea_id {
+            sqlx::query_as!(
+                StudentTimeline,
+                r#"
+                SELECT * FROM student_timelines
+                WHERE stu_id = ?1 AND subcourse_id = ?2
+                "#,
+                stu_id,
+                subcourse_id
+            )
+            .fetch_all(pool)
+            .await?
+        } else {
+            sqlx::query_as!(
+                StudentTimeline,
+                r#"
+                SELECT * FROM student_timelines
+                WHERE stu_id = ?1 AND subcourse_id = ?2 AND tea_id = ?3
+                "#,
+                stu_id,
+                subcourse_id,
+                tea_id
+            )
+            .fetch_all(pool)
+            .await?
+        };
+        return Ok(recs);
+    } else {
+        return Err(sqlx::Error::RowNotFound);
+    }
 }
 
 pub async fn get_timeline_by_id(

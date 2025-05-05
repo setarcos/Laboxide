@@ -9,10 +9,9 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Write;
 
-use crate::config::{PERMISSION_TEACHER, PERMISSION_ADMIN};
+use crate::config::{PERMISSION_TEACHER, PERMISSION_ADMIN, PERMISSION_STUDENT};
 use crate::models::StudentTimeline;
 use crate::db;
-use crate::utils::check_subcourse_perm;
 
 #[post("/timeline")]
 pub async fn create_timeline(
@@ -237,7 +236,16 @@ pub async fn list_timelines_by_student(
     session: Session,
 ) -> impl Responder {
     let (subcourse_id, stu_id) = path.into_inner();
-    match db::list_timelines_by_student(&db_pool, subcourse_id, &stu_id).await {
+    let mut tea_id = "-".to_string();
+    let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
+    if permission & PERMISSION_TEACHER != 0 {
+        tea_id = user_id.clone();
+    }
+    if (permission & PERMISSION_STUDENT != 0) && user_id != stu_id {
+        return HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" }));
+    }
+    match db::list_timelines_by_student(&db_pool, subcourse_id, &stu_id, &tea_id).await {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
