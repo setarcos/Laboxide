@@ -5,6 +5,7 @@ use actix_files::NamedFile;
 use futures_util::TryStreamExt;
 use serde_json::json;
 use sqlx::SqlitePool;
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::Write;
 
@@ -94,9 +95,27 @@ pub async fn create_timeline(
         let upload_dir = format!("uploads/courses/{}", stu_id.as_ref().unwrap());
         fs::create_dir_all(&upload_dir).unwrap();
 
-        let file_path = format!("{}/{}", upload_dir, note_filename.as_ref().unwrap());
+        let original_name = note_filename.as_ref().unwrap();
+        let mut file_path = PathBuf::from(&upload_dir);
+        file_path.push(original_name);
+
+        let mut final_filename = original_name.clone();
+        let mut counter = 1;
+
+        while file_path.exists() {
+            let stem = Path::new(original_name).file_stem().unwrap().to_string_lossy();
+            let ext = Path::new(original_name).extension().and_then(|e| Some(format!(".{}", e.to_string_lossy()))).unwrap_or_default();
+            final_filename = format!("{}({}){}", stem, counter, ext);
+            file_path = PathBuf::from(&upload_dir);
+            file_path.push(&final_filename);
+            counter += 1;
+        }
+
         let mut f = std::fs::File::create(&file_path).unwrap();
         f.write_all(&file_bytes).unwrap();
+
+        // Update the filename to the final one used
+        note_filename = Some(final_filename);
     }
 
     match (
@@ -218,9 +237,6 @@ pub async fn list_timelines_by_student(
     session: Session,
 ) -> impl Responder {
     let (subcourse_id, stu_id) = path.into_inner();
-    if let Err(err) = check_subcourse_perm(&db_pool, &session, subcourse_id).await {
-        return err;
-    }
     match db::list_timelines_by_student(&db_pool, subcourse_id, &stu_id).await {
         Ok(items) => HttpResponse::Ok().json(items),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
