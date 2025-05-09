@@ -33,8 +33,7 @@ pub async fn get_labroom(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::get_labroom_by_id(&db_pool, id).await {
-        Ok(Some(labroom)) => HttpResponse::Ok().json(labroom),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Labroom not found" })),
+        Ok(labroom) => HttpResponse::Ok().json(labroom),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -47,8 +46,7 @@ pub async fn update_labroom(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::update_labroom(&db_pool, id, item.into_inner()).await {
-        Ok(Some(labroom)) => HttpResponse::Ok().json(labroom),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Labroom not found" })),
+        Ok(labroom) => HttpResponse::Ok().json(labroom),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }

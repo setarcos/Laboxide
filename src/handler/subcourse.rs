@@ -83,8 +83,7 @@ pub async fn get_subcourse(
     path: web::Path<i64>,
 ) -> impl Responder {
     match db::get_subcourse_with_name(&db_pool, path.into_inner()).await {
-        Ok(Some(subcourse)) => HttpResponse::Ok().json(subcourse),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" })),
+        Ok(subcourse) => HttpResponse::Ok().json(subcourse),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -105,8 +104,7 @@ pub async fn update_subcourse(
         return err;
     }
     match db::update_subcourse(&db_pool, id, item.into_inner()).await {
-        Ok(Some(subcourse)) => HttpResponse::Ok().json(subcourse),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" })),
+        Ok(subcourse) => HttpResponse::Ok().json(subcourse),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -116,8 +114,7 @@ pub async fn ensure_subcourse_exists(
     subcourse_id: i64,
 ) -> Result<SubCourse, HttpResponse> {
     match crate::db::get_subcourse_by_id(db_pool, subcourse_id).await {
-        Ok(Some(sub)) => Ok(sub),
-        Ok(None) => Err(HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" }))),
+        Ok(sub) => Ok(sub),
         Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
     }
 }

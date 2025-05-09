@@ -44,7 +44,6 @@ pub async fn update_user(
     db_pool: web::Data<SqlitePool>,
     item: web::Json<User>,
 ) -> impl Responder {
-
     match db::update_user(&db_pool, item.into_inner()).await {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),

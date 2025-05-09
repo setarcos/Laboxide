@@ -15,14 +15,13 @@ pub async fn check_course_perm(
         return Ok(())
     }
     match db::get_course_by_id(db_pool, course_id).await {
-        Ok(Some(course)) => {
+        Ok(course) => {
             let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
             if user_id != course.tea_id {
                 return Err(HttpResponse::Forbidden().json(json!({"error": "Only course moderator can execute."})));
             }
             Ok(())
         }
-        Ok(None) => Err(HttpResponse::NotFound().json(json!({ "error": "Course not found" }))),
         Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
     }
 }
@@ -37,14 +36,13 @@ pub async fn check_subcourse_perm(
         return Ok(())
     }
     match db::get_subcourse_by_id(db_pool, subcourse_id).await {
-        Ok(Some(subcourse)) => {
+        Ok(subcourse) => {
             let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
             if user_id != subcourse.tea_id {
                 return Err(HttpResponse::Forbidden().json(json!({"error": "Only subcourse teacher can execute."})));
             }
             Ok(())
         }
-        Ok(None) => Err(HttpResponse::NotFound().json(json!({ "error": "SubCourse not found" }))),
         Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
     }
 }

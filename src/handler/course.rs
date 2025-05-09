@@ -35,8 +35,7 @@ pub async fn get_course(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::get_course_by_id(&db_pool, id).await {
-        Ok(Some(course)) => HttpResponse::Ok().json(course),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course not found" })),
+        Ok(course) => HttpResponse::Ok().json(course),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -53,7 +52,7 @@ pub async fn update_course(
     let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or("".to_string());
 
     match db::get_course_by_id(&db_pool, id).await {
-        Ok(Some(course)) => {
+        Ok(course) => {
             // Check if the user has permission to update the course
             if permission & PERMISSION_ADMIN != 0 || (permission & PERMISSION_TEACHER != 0 && course.tea_id == user_id) {
                 // Proceed with update if authorized
@@ -67,8 +66,7 @@ pub async fn update_course(
                     newcourse.term = course.term;
                 }
                 match db::update_course(&db_pool, id, newcourse).await {
-                    Ok(Some(course)) => HttpResponse::Ok().json(course),
-                    Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course not found" })),
+                    Ok(course) => HttpResponse::Ok().json(course),
                     Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
                 }
             } else {
@@ -76,7 +74,6 @@ pub async fn update_course(
                 HttpResponse::Forbidden().json(json!({ "error": "Permission denied!" }))
             }
         }
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }

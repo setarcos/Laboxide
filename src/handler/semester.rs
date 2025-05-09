@@ -33,8 +33,7 @@ pub async fn get_semester(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::get_semester_by_id(&db_pool, id).await {
-        Ok(Some(semester)) => HttpResponse::Ok().json(semester),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Semester not found" })),
+        Ok(semester) => HttpResponse::Ok().json(semester),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -47,8 +46,7 @@ pub async fn update_semester(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::update_semester(&db_pool, id, item.into_inner()).await {
-        Ok(Some(semester)) => HttpResponse::Ok().json(semester),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Semester not found" })),
+        Ok(semester) => HttpResponse::Ok().json(semester),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
