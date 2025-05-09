@@ -50,7 +50,7 @@ pub async fn upload_course_file(
         }
     }
 
-    match (fname.clone(), finfo, course_id) {
+    match (fname, finfo, course_id) {
         (Some(fname), Some(finfo), Some(course_id)) => {
             // Save file to ./uploads/courses/<course_id>/<fname>
             let upload_dir = format!("uploads/courses/{}", course_id);
@@ -61,7 +61,7 @@ pub async fn upload_course_file(
             f.write_all(&file_bytes).unwrap();
 
             // Save metadata to DB
-            match db::add_course_file(&db_pool, fname.clone(), finfo, course_id).await {
+            match db::add_course_file(&db_pool, &fname, &finfo, course_id).await {
                 Ok(record) => HttpResponse::Ok().json(record),
                 Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
             }

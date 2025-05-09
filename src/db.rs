@@ -758,8 +758,8 @@ pub async fn delete_schedule(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::E
 // Operations for coursefiles
 pub async fn add_course_file(
     pool: &SqlitePool,
-    fname: String,
-    finfo: String,
+    fname: &str,
+    finfo: &str,
     course_id: i64,
 ) -> Result<CourseFile, sqlx::Error> {
     let rec = sqlx::query_as!(
