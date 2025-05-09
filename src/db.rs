@@ -13,13 +13,13 @@ pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
 }
 
 // Db operation for User
-pub async fn get_user_by_id(pool: &Pool<Sqlite>, user_id: &str) -> Result<Option<User>, sqlx::Error> {
+pub async fn get_user_by_id(pool: &Pool<Sqlite>, user_id: &str) -> Result<User, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
         "SELECT user_id, username, permission FROM users WHERE user_id = ?",
         user_id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(user)

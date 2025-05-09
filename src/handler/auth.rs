@@ -26,21 +26,14 @@ pub async fn login(
 
     // Check if the user exists in the database
     match db::get_user_by_id(&db_pool, &query.user_id).await {
-        Ok(Some(user)) => {
+        Ok(user) => {
             // Store user_id and permission in the session
             session.insert("user_id", &user.user_id).unwrap();
             session.insert("permissions", &user.permission).unwrap();
             session.insert("realname", &user.username).unwrap();
             HttpResponse::Ok().json(user)
         },
-        Ok(None) => {
-            // Store user_id and permission as browse-only (default permission 0)
-            session.insert("user_id", &query.user_id).unwrap();
-            session.insert("permissions", &0i64).unwrap();  // Browse-only, no permissions
-            session.insert("realname", "Guest").unwrap();
-            HttpResponse::Ok().json(json!({ "message": "User found as browse-only" }))
-        },
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 

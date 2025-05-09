@@ -24,8 +24,7 @@ pub async fn get_user(
 ) -> impl Responder {
     let user_id = path.into_inner();
     match db::get_user_by_id(&db_pool, &user_id).await {
-        Ok(Some(user)) => HttpResponse::Ok().json(json!( user )),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "User not found" })),
+        Ok(user) => HttpResponse::Ok().json(json!( user )),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
