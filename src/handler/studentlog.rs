@@ -46,7 +46,7 @@ pub async fn update_student_log(
     if let Err(err) = check_stu_id(&session, &newlog.stu_id) {
         return err;
     }
-    if let Ok(Some(log)) = db::get_student_log_by_id(&db_pool, id).await {
+    if let Ok(log) = db::get_student_log_by_id(&db_pool, id).await {
         if newlog.stu_id != log.stu_id {
             return HttpResponse::Forbidden().json(json!({"error": "Can't use a different ID"}));
         }

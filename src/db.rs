@@ -519,15 +519,15 @@ pub async fn remove_student_from_group(
     pool: &SqlitePool,
     stu_id: &str,
     subcourse_id: i64,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
         "DELETE FROM students WHERE stu_id = ? AND subcourse_id = ?",
         stu_id,
         subcourse_id
     )
     .execute(pool)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn set_student_seat(
@@ -550,16 +550,13 @@ pub async fn get_student_seat(
     stu_id: &str,
     subcourse_id: i64,
 ) -> Result<i64, sqlx::Error> {
-    if let Some(seat) = sqlx::query_scalar!(
+    let seat = sqlx::query_scalar!(
         "SELECT seat FROM students WHERE stu_id = ?1 AND subcourse_id = ?2",
         stu_id, subcourse_id
     )
-    .fetch_optional(pool)
-    .await? {
-        Ok(seat)
-    } else {
-        Err(sqlx::Error::RowNotFound)
-    }
+    .fetch_one(pool)
+    .await?;
+    Ok(seat)
 }
 
 pub async fn get_group_by_subcourse_id(
@@ -580,13 +577,13 @@ pub async fn get_group_by_subcourse_id(
 pub async fn get_student_by_group_id(
     pool: &SqlitePool,
     group_id: i64,
-) -> Result<Option<Student>, sqlx::Error> {
+) -> Result<Student, sqlx::Error> {
     let student = sqlx::query_as!(
         Student,
         "SELECT id, stu_id, stu_name, seat, subcourse_id FROM students WHERE id = ?",
         group_id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(student)
@@ -691,13 +688,13 @@ pub async fn list_schedules(pool: &SqlitePool, id: i64) -> Result<Vec<CourseSche
 pub async fn get_schedule_by_id(
     pool: &SqlitePool,
     id: i64,
-) -> Result<Option<CourseSchedule>, sqlx::Error> {
+) -> Result<CourseSchedule, sqlx::Error> {
     let result = sqlx::query_as!(
         CourseSchedule,
         r#"SELECT id, week, name, requirement, course_id FROM course_schedules WHERE id = ?"#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(result)
@@ -723,7 +720,7 @@ pub async fn update_schedule(
     pool: &SqlitePool,
     id: i64,
     schedule: CourseSchedule,
-) -> Result<Option<CourseSchedule>, sqlx::Error> {
+) -> Result<CourseSchedule, sqlx::Error> {
     let rec = sqlx::query_as!(
         CourseSchedule,
         r#"
@@ -738,7 +735,7 @@ pub async fn update_schedule(
         schedule.course_id,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
@@ -792,13 +789,13 @@ pub async fn list_course_files(pool: &SqlitePool, id: i64) -> Result<Vec<CourseF
     Ok(files)
 }
 
-pub async fn get_course_file_by_id(pool: &SqlitePool, id: i64) -> Result<Option<CourseFile>, sqlx::Error> {
+pub async fn get_course_file_by_id(pool: &SqlitePool, id: i64) -> Result<CourseFile, sqlx::Error> {
     let file = sqlx::query_as!(
         CourseFile,
         r#"SELECT id, fname, finfo, course_id FROM course_files WHERE id = ?"#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(file)
@@ -838,13 +835,13 @@ pub async fn add_student_log(pool: &SqlitePool, log: StudentLog) -> Result<Stude
     Ok(rec)
 }
 
-pub async fn get_student_log_by_id(pool: &SqlitePool, id: i64) -> Result<Option<StudentLog>, sqlx::Error> {
+pub async fn get_student_log_by_id(pool: &SqlitePool, id: i64) -> Result<StudentLog, sqlx::Error> {
     let log = sqlx::query_as!(
         StudentLog,
         "SELECT * FROM student_logs WHERE id = ?",
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
     Ok(log)
 }
@@ -1001,13 +998,13 @@ pub async fn add_subschedule(pool: &SqlitePool, item: SubSchedule) -> Result<Sub
     Ok(rec)
 }
 
-pub async fn get_subschedule_by_id(pool: &SqlitePool, id: i64) -> Result<Option<SubSchedule>, sqlx::Error> {
+pub async fn get_subschedule_by_id(pool: &SqlitePool, id: i64) -> Result<SubSchedule, sqlx::Error> {
     let rec = sqlx::query_as!(
         SubSchedule,
         r#"SELECT id, schedule_id, step, title FROM subschedules WHERE id = ?"#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
@@ -1025,7 +1022,7 @@ pub async fn list_subschedules(pool: &SqlitePool, schedule_id: i64) -> Result<Ve
     Ok(recs)
 }
 
-pub async fn update_subschedule(pool: &SqlitePool, id: i64, item: SubSchedule) -> Result<Option<SubSchedule>, sqlx::Error> {
+pub async fn update_subschedule(pool: &SqlitePool, id: i64, item: SubSchedule) -> Result<SubSchedule, sqlx::Error> {
     let rec = sqlx::query_as!(
         SubSchedule,
         r#"
@@ -1039,7 +1036,7 @@ pub async fn update_subschedule(pool: &SqlitePool, id: i64, item: SubSchedule) -
         item.title,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
@@ -1175,7 +1172,7 @@ pub async fn list_timelines_by_student(
 pub async fn get_timeline_by_id(
     pool: &SqlitePool,
     id: i64,
-) -> Result<Option<StudentTimeline>, sqlx::Error> {
+) -> Result<StudentTimeline, sqlx::Error> {
     let timeline = sqlx::query_as!(
         StudentTimeline,
         r#"
@@ -1185,7 +1182,7 @@ pub async fn get_timeline_by_id(
         "#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(timeline)

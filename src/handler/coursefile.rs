@@ -79,7 +79,7 @@ pub async fn download_course_file(
     let id = path.into_inner();
 
     match db::get_course_file_by_id(&db_pool, id).await {
-        Ok(Some(course_file)) => {
+        Ok(course_file) => {
             let file_path = format!("uploads/courses/{}/{}", course_file.course_id, course_file.fname);
             match NamedFile::open_async(file_path).await {
                 Ok(named_file) => named_file
@@ -93,7 +93,6 @@ pub async fn download_course_file(
                 Err(_) => HttpResponse::NotFound().json(json!({ "error": "File not found on disk" })),
             }
         }
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course file not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -119,7 +118,7 @@ pub async fn delete_course_file(
     let id = path.into_inner();
 
     match db::get_course_file_by_id(&db_pool, id).await {
-        Ok(Some(file)) => {
+        Ok(file) => {
             if let Err(err) = check_course_perm(&db_pool, &session, file.course_id).await {
                 return err;
             }
@@ -132,7 +131,6 @@ pub async fn delete_course_file(
                 Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
             }
         }
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Course file not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }

@@ -165,11 +165,6 @@ async fn check_timeline_permission(
         HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))
     })?;
 
-    let timeline = match timeline {
-        Some(t) => t,
-        None => return Err(HttpResponse::NotFound().json(json!({ "error": "Timeline not found" }))),
-    };
-
     let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     let user_id: Option<String> = session.get("user_id").unwrap_or(None);
 
@@ -260,15 +255,14 @@ pub async fn download_timeline_file(
     let id = path.into_inner();
 
     match db::get_timeline_by_id(&db_pool, id).await {
-        Ok(Some(entry)) if entry.notetype == 1 => {
+        Ok(entry) if entry.notetype == 1 => {
             let file_path = format!("uploads/courses/{}/{}", entry.stu_id, entry.note);
             match NamedFile::open_async(&file_path).await {
                 Ok(file) => file.into_response(&req),
                 Err(_) => HttpResponse::NotFound().body("File not found"),
             }
         }
-        Ok(Some(_)) => HttpResponse::BadRequest().body("This entry does not contain a file."),
-        Ok(None) => HttpResponse::NotFound().body("Timeline entry not found."),
+        Ok(_) => HttpResponse::BadRequest().json(json!({"error": "This entry does not contain a file."})),
         Err(e) => HttpResponse::InternalServerError().json(json!({"error": e.to_string()})),
     }
 }

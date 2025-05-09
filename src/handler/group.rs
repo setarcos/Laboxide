@@ -101,16 +101,17 @@ pub async fn update_student_seat(
 ) -> impl Responder {
     let (group_id, seat) = path.into_inner();
 
-    if let Ok(Some(student)) = db::get_student_by_group_id(&db_pool, group_id).await {
-        if let Err(err) = check_subcourse_perm(&db_pool, &session, student.subcourse_id).await {
-            return err;
+    match db::get_student_by_group_id(&db_pool, group_id).await {
+        Ok(student) => {
+            if let Err(err) = check_subcourse_perm(&db_pool, &session, student.subcourse_id).await {
+                return err;
+            }
+            match db::set_student_seat(&db_pool, group_id, seat).await {
+                Ok(_) => HttpResponse::Ok().json(json!({ "message": "Seat updated successfully" })),
+                Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+            }
         }
-        match db::set_student_seat(&db_pool, group_id, seat).await {
-            Ok(_) => HttpResponse::Ok().json(json!({ "message": "Seat updated successfully" })),
-            Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
-        }
-    } else {
-        HttpResponse::NotFound().json(json!({ "error": "Student not found" }))
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 

@@ -14,7 +14,7 @@ pub async fn create_subschedule(
     session: Session,
 ) -> impl Responder {
     let sub = item.into_inner();
-    if let Ok(Some(schedule)) = db::get_schedule_by_id(&db_pool, sub.schedule_id).await {
+    if let Ok(schedule) = db::get_schedule_by_id(&db_pool, sub.schedule_id).await {
         if let Err(err) = check_course_perm(&db_pool, &session, schedule.course_id).await {
             return err;
         }
@@ -33,8 +33,7 @@ pub async fn get_subschedule(
     path: web::Path<i64>,
 ) -> impl Responder {
     match db::get_subschedule_by_id(&db_pool, path.into_inner()).await {
-        Ok(Some(rec)) => HttpResponse::Ok().json(rec),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "SubSchedule not found" })),
+        Ok(rec) => HttpResponse::Ok().json(rec),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -57,8 +56,7 @@ pub async fn update_subschedule(
     item: web::Json<SubSchedule>,
 ) -> impl Responder {
     match db::update_subschedule(&db_pool, path.into_inner(), item.into_inner()).await {
-        Ok(Some(rec)) => HttpResponse::Ok().json(rec),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "SubSchedule not found" })),
+        Ok(rec) => HttpResponse::Ok().json(rec),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -70,7 +68,7 @@ pub async fn delete_subschedule(
     session: Session,
 ) -> impl Responder {
     let sub_id = path.into_inner();
-    if let Ok(Some(schedule)) = db::get_schedule_by_id(&db_pool, sub_id).await {
+    if let Ok(schedule) = db::get_schedule_by_id(&db_pool, sub_id).await {
         if let Err(err) = check_course_perm(&db_pool, &session, schedule.course_id).await {
             return err;
         }
