@@ -4,7 +4,7 @@ use crate::models::{User, Semester, Course, Labroom};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, Student, CourseSchedule, CourseFile};
 use crate::models::{StudentLog, SubSchedule, StudentTimeline};
-use chrono::{Local, Duration};
+use chrono::{Local, Duration, NaiveDateTime};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -940,6 +940,29 @@ pub async fn find_recent_student_log(
         since
     )
     .fetch_optional(pool)
+    .await
+}
+
+pub async fn find_student_logs_by_room(
+    pool: &SqlitePool,
+    room_id: i64,
+    start_time: NaiveDateTime,
+    end_time: NaiveDateTime,
+) -> Result<Vec<StudentLog>, sqlx::Error> {
+    sqlx::query_as!(
+        StudentLog,
+        r#"
+        SELECT id, stu_id, stu_name, subcourse_id, room_id, seat,
+               lab_name, note, tea_note, tea_name, fin_time, confirm
+        FROM student_logs
+        WHERE room_id = ?1 AND fin_time >= ?2 AND fin_time <= ?3
+        ORDER BY fin_time DESC
+        "#,
+        room_id,
+        start_time,
+        end_time
+    )
+    .fetch_all(pool)
     .await
 }
 

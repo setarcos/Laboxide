@@ -5,6 +5,7 @@ use sqlx::SqlitePool;
 use serde::Deserialize;
 use crate::db;
 use crate::models::StudentLog;
+use chrono::NaiveDateTime;
 
 pub fn check_stu_id(
     session: &Session,
@@ -68,6 +69,26 @@ pub async fn get_recent_logs(
     match db::list_recent_logs(&db_pool, subcourse_id).await {
         Ok(logs) => HttpResponse::Ok().json(logs),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string()})),
+    }
+}
+#[derive(Debug, Deserialize)]
+pub struct TimeRangeQuery {
+    pub start_time: NaiveDateTime,
+    pub end_time: NaiveDateTime,
+}
+
+#[post("/student_log/room/{room_id}")]
+pub async fn get_student_logs_by_room(
+    db_pool: web::Data<SqlitePool>,
+    time_query: web::Json<TimeRangeQuery>,
+    path: web::Path<i64>,
+) -> impl Responder {
+    let room_id = path.into_inner();
+    match db::find_student_logs_by_room(
+        &db_pool, room_id, time_query.start_time, time_query.end_time,
+    ) .await {
+        Ok(logs) => HttpResponse::Ok().json(logs),
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 

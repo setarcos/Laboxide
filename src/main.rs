@@ -17,7 +17,7 @@ use crate::handler::timeline::{init_timeline_routes, list_timelines_by_schedule}
 use crate::config::PERMISSION_LAB_MANAGER;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
 use crate::middleware::CheckPermission;
-use handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log, get_recent_logs, force_student_log};
+use handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log, get_recent_logs, force_student_log, get_student_logs_by_room};
 mod db;
 mod models;
 mod config;
@@ -87,6 +87,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/lab")
                 .wrap(CheckPermission::new(PERMISSION_LAB_MANAGER | PERMISSION_ADMIN))
+                .service(get_student_logs_by_room)
                 .configure(init_labroom_adminroutes)
             )
             .service(
