@@ -1,6 +1,7 @@
 // src/main.rs
 use actix_web::{App, HttpServer, web, cookie::Key, middleware::Logger};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
+use actix_web::cookie::SameSite;
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
 use crate::handler::semester::{init_semester_routes, get_current_semester};
@@ -46,10 +47,12 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(db_pool.clone()))
             .wrap(Logger::default())
-            .wrap(SessionMiddleware::new(
-                CookieSessionStore::default(),
-                secret_key.clone(),
-            ))
+            .wrap(
+                SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
+                .cookie_secure(false) // <--- Allow cookie over HTTP
+                .cookie_same_site(SameSite::Lax) // optional, but recommended for login
+                .build(),
+            )
             .configure(init_auth_routes) // Register authentication routes
             .service(list_courses)
             .service(list_subcourses)

@@ -3,6 +3,30 @@
 version = 4
 
 [[package]]
+name = "Laboxide"
+version = "0.1.0"
+dependencies = [
+ "actix-cors",
+ "actix-files",
+ "actix-multipart",
+ "actix-service",
+ "actix-session",
+ "actix-web",
+ "chrono",
+ "dotenv",
+ "env_logger",
+ "futures",
+ "futures-util",
+ "log",
+ "md5",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+]
+
+[[package]]
 name = "actix-codec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -393,30 +417,6 @@ name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
-
-[[package]]
-name = "auth_webapp"
-version = "0.1.0"
-dependencies = [
- "actix-cors",
- "actix-files",
- "actix-multipart",
- "actix-service",
- "actix-session",
- "actix-web",
- "chrono",
- "dotenv",
- "env_logger",
- "futures",
- "futures-util",
- "log",
- "md5",
- "reqwest",
- "serde",
- "serde_json",
- "sqlx",
- "tokio",
-]
 
 [[package]]
 name = "autocfg"

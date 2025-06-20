@@ -153,8 +153,15 @@ pub async fn iaaa_callback(
     };
     // In a real app, you might look up the user in a DB here.
     let mut perm = if user_info.identity_type == "TEACHER" { PERMISSION_TEACHER } else { PERMISSION_STUDENT };
-    let dbuser = db::get_user_by_id(&db_pool, &user.user_id).await;
-    perm |= dbuser.unwrap().permission;
+    let db_user_result = db::get_user_by_id(&db_pool, &user.user_id).await;
+    match db_user_result {
+        Ok(db_user) => {
+            perm |= db_user.permission;
+        }
+        Err(e) => {
+            log::error!("Failed to fetch user {} from DB: {:?}", user.user_id, e);
+        }
+    }
     user.permission = perm;
     // Store the user info in the session
     put_user_in_session(&session, &user);
