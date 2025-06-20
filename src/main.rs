@@ -2,6 +2,7 @@
 use actix_web::{App, HttpServer, web, cookie::Key, middleware::Logger};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::SameSite;
+use base64::{Engine as _, engine::general_purpose};
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
 use crate::handler::semester::{init_semester_routes, get_current_semester};
@@ -39,7 +40,12 @@ async fn main() -> std::io::Result<()> {
     let db_pool = db::init_db(&config).await.unwrap();
 
     // Initialize session secret key
-    let secret_key = Key::from(&[0; 64]);
+    let secret_string = std::env::var("SESSION_SECRET_KEY")
+        .expect("SESSION_SECRET_KEY must be set in the environment or .env file");
+    let raw_key = general_purpose::STANDARD.decode(&secret_string)
+        .expect("Failed to decode base64 session key. Is it a valid base64 string?");
+
+    let secret_key = Key::from(&raw_key);
 
     // Start the Actix web server
     HttpServer::new(move || {
@@ -49,7 +55,6 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
-                .cookie_secure(false) // <--- Allow cookie over HTTP
                 .cookie_same_site(SameSite::Lax) // optional, but recommended for login
                 .build(),
             )
