@@ -1,0 +1,70 @@
+name: Build and Deploy Rust Web Backend
+
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: rust
+    container: nodoxide
+    env:
+      CARGO_TERM_COLOR: always
+      PROJECT_EXECUTABLE_NAME: "Laboxide"
+      SERVICE_NAME: "Laboxide.service"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Build project
+        run: cargo build --release --verbose
+
+      - name: List target directory
+        run: ls -alh target/release
+
+      - name: Prepare SSH Key and Known Hosts
+        run: |
+          echo "Setting up SSH environment..."
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          echo "Adding remote host key to known_hosts..."
+          ssh-keyscan -p ${{ secrets.DEPLOY_PORT || 22 }} -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Stop remote service
+        run: |
+          echo "Attempting to stop service: ${{ env.SERVICE_NAME }}"
+          ssh -p ${{ secrets.DEPLOY_PORT || 22 }} \
+              -o StrictHostKeyChecking=accept-new \
+              ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+              "sudo systemctl stop ${{ env.SERVICE_NAME }}"
+
+      - name: Upload binary
+        run: |
+          echo "Uploading binary via manual SCP..."
+          scp -P ${{ secrets.DEPLOY_PORT || 22 }} \
+              -o StrictHostKeyChecking=accept-new \
+              target/release/${{ env.PROJECT_EXECUTABLE_NAME }} \
+              ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.UPLOAD_PATH }}
+
+      - name: Start remote service
+        run: |
+          echo "Attempting to start service: ${{ env.SERVICE_NAME }} via manual SSH"
+          ssh -p ${{ secrets.DEPLOY_PORT || 22 }} \
+              -o StrictHostKeyChecking=accept-new \
+              ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+              "sudo systemctl start ${{ env.SERVICE_NAME }}"
