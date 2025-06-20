@@ -1,40 +1,164 @@
 // src/handler/auth.rs
-use actix_web::{get, HttpResponse, Responder, web};
+use actix_web::{post, get, HttpResponse, Responder, web, HttpRequest, error};
 use actix_session::Session;
 use serde_json::json;
+use serde::Deserialize;
 use crate::db;
-use crate::config::{Config};
+use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_STUDENT, PERMISSION_TEACHER};
+use crate::models::User;
 use log::error;
+use std::env;
 
 #[derive(serde::Deserialize)]
 pub struct LoginQuery {
-    pub user_id: String,
     pub token: String,
 }
 
-// Login Route - authenticate user by token
-#[get("/auth")]
-pub async fn login(
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IaaaValidateResponse {
+    pub err_code: String,
+    #[serde(default)]
+    pub user_info: Option<IaaaUserInfo>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct IaaaUserInfo {
+    pub identity_id: String,
+    pub identity_type: String,
+    pub name: String,
+}
+
+fn put_user_in_session(session: &actix_session::Session, user: &User) {
+    session.insert("user_id", user.user_id.clone()).unwrap();
+    session.insert("permissions", user.permission).unwrap();
+    session.insert("realname", user.username.clone()).unwrap();
+}
+
+#[post("/auth")]
+pub async fn iaaa_callback(
+    req: HttpRequest,
     session: Session,
-    query: web::Query<LoginQuery>,
-    config: web::Data<Config>,
+    token_query: web::Json<LoginQuery>,
     db_pool: web::Data<sqlx::SqlitePool>,
 ) -> impl Responder {
-    if query.token != config.token_secret {
-        return HttpResponse::Unauthorized().json(json!({ "error": "Invalid token" }));
+
+    let token = token_query.into_inner().token;
+
+    // --- Backdoor for Development ---
+    let app_env = env::var("APP_ENV").unwrap_or_else(|_| "production".to_string());
+    if app_env == "development" && (token.starts_with("Student") || token.starts_with("Teacher")) {
+        log::info!("Using development backdoor for token: {}", token);
+        let parts: Vec<&str> = token.split(',').collect();
+        if parts[0] == "Student" {
+            let user = User {
+                user_id: parts[1].to_string(),
+                username: if parts.len() > 2 {parts[2].to_string()} else {String::from("贾鸣")},
+                permission: PERMISSION_STUDENT,
+            };
+            put_user_in_session(&session, &user);
+            return HttpResponse::Ok().json(user);
+        } else {
+            match db::get_user_by_id(&db_pool, parts[1]).await {
+                Ok(user) => {
+                    put_user_in_session(&session, &user);
+                    return HttpResponse::Ok().json(user);
+                },
+                Err(e) => {
+                    let user = User {
+                        user_id: parts[1].to_string(),
+                        username: if parts.len() > 2 {parts[2].to_string()} else {String::from("贾诗")},
+                        permission: PERMISSION_TEACHER,
+                    };
+                    put_user_in_session(&session, &user);
+                    return HttpResponse::Ok().json(user);
+                },
+            };
+        }
+
     }
 
-    // Check if the user exists in the database
-    match db::get_user_by_id(&db_pool, &query.user_id).await {
-        Ok(user) => {
-            // Store user_id and permission in the session
-            session.insert("user_id", &user.user_id).unwrap();
-            session.insert("permissions", &user.permission).unwrap();
-            session.insert("realname", &user.username).unwrap();
-            HttpResponse::Ok().json(user)
-        },
-        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    // Get client IP, respecting X-Forwarded-For header
+    let ip = req.peer_addr()
+        .map(|addr| addr.ip().to_string())
+        .or_else(|| {
+            req.headers()
+                .get("X-Forwarded-For")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.split(',').next().unwrap().trim().to_string())
+        })
+        .unwrap_or_else(|| "0.0.0.0".to_string());
+
+    log::info!("Validating token for IP: {}", ip);
+
+    let app_id = env::var("IAAA_APP_ID").expect("IAAA_APP_ID not set");
+    let iaaa_key = env::var("IAAA_KEY").expect("IAAA_KEY not set");
+
+    let para_to_hash = format!("appId={}&remoteAddr={}&token={}{}", app_id, ip, token, iaaa_key);
+    let digest = md5::compute(para_to_hash.as_bytes());
+    let msg_abs = format!("{:x}", digest);
+
+    let client = reqwest::Client::new();
+    let url = "https://iaaa.pku.edu.cn/iaaa/svc/token/validate.do";
+    let res = match client
+        .get(url)
+        .query(&[
+            ("appId", &app_id),
+            ("remoteAddr", &ip),
+            ("token", &token),
+            ("msgAbs", &msg_abs),
+        ])
+        .send()
+        .await {
+            Ok(response) => response, // If successful, continue with the response
+            Err(e) => {
+                // If the request fails, log the error and return a 500 response
+                log::error!("Failed to send request to IAAA: {}", e);
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "Failed to contact authentication service"
+                }));
+            }
+        };
+    let validation_response = match res.json::<IaaaValidateResponse>().await {
+        Ok(data) => data, // If successful, continue with the parsed data
+        Err(e) => {
+            // If JSON parsing fails, log the error and return a 500 response
+            log::error!("Failed to parse JSON from IAAA: {}", e);
+            return HttpResponse::InternalServerError().json(json!({
+                "error": "Invalid response from authentication service"
+            }));
+        }
+    };
+
+    if validation_response.err_code != "0" {
+        log::warn!("IAAA validation failed with code: {}", validation_response.err_code);
+        return HttpResponse::InternalServerError().json(json!({ "error": "IAAA failed." }))
     }
+
+    let user_info = match validation_response.user_info {
+        Some(info) => info, // If user_info exists, assign it to the `user_info` variable.
+        None => {
+            // If user_info is None, log the error and return an appropriate HTTP response.
+            log::error!("IAAA validation succeeded but did not return user info");
+            // Since this function returns `impl Responder`, we can return an HttpResponse directly.
+            return HttpResponse::BadRequest().json(json!({ "error": "IAAA did not return user info" }));
+        }
+    };
+    log::info!("IAAA validation successful for user: {}", user_info.name);
+    let mut user = User {
+        user_id: user_info.identity_id,
+        username: user_info.name,
+        permission: 0,
+    };
+    // In a real app, you might look up the user in a DB here.
+    let mut perm = if user_info.identity_type == "TEACHER" { PERMISSION_TEACHER } else { PERMISSION_STUDENT };
+    let dbuser = db::get_user_by_id(&db_pool, &user.user_id).await;
+    perm |= dbuser.unwrap().permission;
+    user.permission = perm;
+    // Store the user info in the session
+    put_user_in_session(&session, &user);
+    HttpResponse::Ok().json(user)
 }
 
 // Logout Route - clear session
@@ -81,7 +205,7 @@ pub async fn greet(session: Session) -> impl Responder {
 
 // Register the authentication routes
 pub fn init_auth_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(login)
+    cfg.service(iaaa_callback)
        .service(logout)
        .service(greet);
 }
