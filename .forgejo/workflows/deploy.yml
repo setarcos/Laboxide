@@ -10,6 +10,7 @@ jobs:
     container: nodoxide
     env:
       CARGO_TERM_COLOR: always
+      DATABASE_URL: "sqlite://./example.db"
       PROJECT_EXECUTABLE_NAME: "Laboxide"
       SERVICE_NAME: "Laboxide.service"
 
