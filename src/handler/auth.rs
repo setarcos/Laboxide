@@ -1,10 +1,10 @@
 // src/handler/auth.rs
-use actix_web::{post, get, HttpResponse, Responder, web, HttpRequest, error};
+use actix_web::{post, get, HttpResponse, Responder, web, HttpRequest};
 use actix_session::Session;
 use serde_json::json;
 use serde::Deserialize;
 use crate::db;
-use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_STUDENT, PERMISSION_TEACHER};
+use crate::config::{PERMISSION_STUDENT, PERMISSION_TEACHER};
 use crate::models::User;
 use log::error;
 use std::env;
@@ -65,7 +65,7 @@ pub async fn iaaa_callback(
                     put_user_in_session(&session, &user);
                     return HttpResponse::Ok().json(user);
                 },
-                Err(e) => {
+                Err(_) => {
                     let user = User {
                         user_id: parts[1].to_string(),
                         username: if parts.len() > 2 {parts[2].to_string()} else {String::from("贾诗")},

@@ -8,7 +8,6 @@ pub const PERMISSION_STUDENT: i64 = 0b1000; // Student: 4th bit
 
 #[derive(Clone)]
 pub struct Config {
-    pub token_secret: String,
     pub database_url: String,
 }
 
@@ -18,12 +17,9 @@ impl Config {
 
         let database_url = env::var("DATABASE_URL")
             .expect("DATABASE_URL must be set in .env file");
-        let token_secret = env::var("TOKEN_SECRET")
-            .unwrap_or_else(|_| "mysecret".to_string());
 
         Config {
             database_url,
-            token_secret,
         }
     }
 }
