@@ -127,3 +127,15 @@ pub struct StudentTimeline {
     pub notetype: i64,  // 0 = text, 1 = file
     pub timestamp: NaiveDateTime, // store as ISO string for JSON
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Equipment {
+    pub id: i64,
+    pub name: String,
+    pub serial: String,
+    pub value: i64,
+    pub position: String,
+    pub status: i64,
+    pub note: String,
+    pub owner_id: String,
+}

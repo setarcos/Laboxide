@@ -10,3 +10,4 @@ pub mod coursefile;
 pub mod studentlog;
 pub mod subschedule;
 pub mod timeline;
+pub mod equipment;

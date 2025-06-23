@@ -15,6 +15,7 @@ use crate::handler::schedule::{init_schedule_routes, list_schedules, get_schedul
 use crate::handler::coursefile::{init_course_file_routes, list_course_files, download_course_file};
 use crate::handler::subschedule::{init_subschedule_routes, list_subschedules};
 use crate::handler::timeline::{init_timeline_routes, list_timelines_by_schedule};
+use crate::handler::equipment::init_equipment_routes;
 
 use crate::config::PERMISSION_LAB_MANAGER;
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
@@ -84,6 +85,7 @@ async fn main() -> std::io::Result<()> {
                 .configure(init_schedule_routes)
                 .configure(init_course_file_routes)
                 .configure(init_subschedule_routes)
+                .configure(init_equipment_routes)
                 .service(update_course)
                 .service(remove_student)
                 .service(update_student_seat)

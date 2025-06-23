@@ -1,6 +1,6 @@
 use actix_web::Result;
 use sqlx::{Pool, Sqlite, SqlitePool};
-use crate::models::{User, Semester, Course, Labroom};
+use crate::models::{User, Semester, Course, Labroom, Equipment};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, Student, CourseSchedule, CourseFile};
 use crate::models::{StudentLog, SubSchedule, StudentTimeline};
@@ -1209,4 +1209,104 @@ pub async fn get_timeline_by_id(
     .await?;
 
     Ok(timeline)
+}
+
+// Equipment operations
+pub async fn add_equipment(pool: &SqlitePool, equipment: Equipment) -> Result<Equipment, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Equipment,
+        r#"
+        INSERT INTO equipments (name, serial, value, position, status, note, owner_id)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        RETURNING id, name, serial, value, position, status, note, owner_id
+        "#,
+        equipment.name,
+        equipment.serial,
+        equipment.value,
+        equipment.position,
+        equipment.status,
+        equipment.note,
+        equipment.owner_id,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_equipments(
+    pool: &SqlitePool,
+    owner_id: &str,
+    offset: i64,
+    limit: i64,
+) -> Result<Vec<Equipment>, sqlx::Error> {
+    let equipments = sqlx::query_as!(
+        Equipment,
+        r#"
+        SELECT id, name, serial, value, position, status, note, owner_id
+        FROM equipments
+        WHERE owner_id = ?1
+        ORDER BY id DESC
+        LIMIT ?2 OFFSET ?3
+        "#,
+        owner_id,
+        limit,
+        offset
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(equipments)
+}
+
+pub async fn get_equipment_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Equipment>, sqlx::Error> {
+    let equipment = sqlx::query_as!(
+        Equipment,
+        r#"
+        SELECT id, name, serial, value, position, status, note, owner_id
+        FROM equipments
+        WHERE id = ?
+        "#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(equipment)
+}
+
+pub async fn update_equipment(pool: &SqlitePool, id: i64, equipment: Equipment) -> Result<Option<Equipment>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        Equipment,
+        r#"
+        UPDATE equipments
+        SET name = ?1, serial = ?2, value = ?3, position = ?4, status = ?5, note = ?6
+        WHERE id = ?7 AND owner_id = ?8
+        RETURNING id, name, serial, value, position, status, note, owner_id
+        "#,
+        equipment.name,
+        equipment.serial,
+        equipment.value,
+        equipment.position,
+        equipment.status,
+        equipment.note,
+        id,
+        equipment.owner_id,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_equipment(pool: &SqlitePool, id: i64, owner_id: &str) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"DELETE FROM equipments WHERE id = ? AND owner_id = ?"#,
+        id,
+        owner_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
 }
