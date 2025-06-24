@@ -1376,24 +1376,19 @@ pub async fn get_equipment_history_by_id(
 
 pub async fn update_equipment_history(
     pool: &SqlitePool,
-    id: i64,
-    history: EquipmentHistory,
+    item_id: i64,
+    returned_date: NaiveDateTime,
 ) -> Result<Option<EquipmentHistory>, sqlx::Error> {
     let rec = sqlx::query_as!(
         EquipmentHistory,
         r#"
         UPDATE equipment_histories
-        SET user = ?1, borrowed_date = ?2, telephone = ?3, note = ?4, returned_date = ?5, item_id = ?6
-        WHERE id = ?7
+        SET returned_date = ?1
+        WHERE item_id = ?2
         RETURNING id, user, borrowed_date, telephone, note, returned_date, item_id
         "#,
-        history.user,
-        history.borrowed_date,
-        history.telephone,
-        history.note,
-        history.returned_date,
-        history.item_id,
-        id
+        returned_date,
+        item_id
     )
     .fetch_optional(pool)
     .await?;

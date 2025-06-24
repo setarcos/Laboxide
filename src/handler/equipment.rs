@@ -106,12 +106,32 @@ pub struct PaginationParams {
     pub page_size: Option<usize>,
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct NewEquipmentHistory {
+    pub user: String,
+    pub telephone: String,
+    pub note: String,
+    pub item_id: i64,
+}
+
 #[post("/equipment/history")]
 pub async fn create_equipment_history(
     db_pool: web::Data<SqlitePool>,
-    item: web::Json<EquipmentHistory>,
+    item: web::Json<NewEquipmentHistory>,
 ) -> impl Responder {
-    match db::add_equipment_history(&db_pool, item.into_inner()).await {
+    let new_item = item.into_inner();
+    let now = chrono::Local::now().naive_local();
+
+    let history = EquipmentHistory {
+        id: 0, // will be ignored in insert
+        user: new_item.user,
+        borrowed_date: now,
+        telephone: new_item.telephone,
+        note: new_item.note,
+        returned_date: None,
+        item_id: new_item.item_id,
+    };
+    match db::add_equipment_history(&db_pool, history).await {
         Ok(history) => HttpResponse::Ok().json(history),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
@@ -142,14 +162,14 @@ pub async fn list_histories_by_item(
     }
 }
 
-#[put("/equipment/history/{id}")]
+#[put("/equipment/history/{item_id}")]
 pub async fn update_equipment_history(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
-    item: web::Json<EquipmentHistory>,
 ) -> impl Responder {
-    let id = path.into_inner();
-    match db::update_equipment_history(&db_pool, id, item.into_inner()).await {
+    let item_id = path.into_inner();
+    let now = chrono::Local::now().naive_local();
+    match db::update_equipment_history(&db_pool, item_id, now).await {
         Ok(Some(history)) => HttpResponse::Ok().json(history),
         Ok(None) => HttpResponse::NotFound().json(json!({ "error": "History not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),

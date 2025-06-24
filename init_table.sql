@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS equipments (
     value INTEGER NOT NULL,
     position VARCHAR(20) NOT NULL,
     status INTEGER NOT NULL,
-    note VARCHAR(200) NOT NULL,
+    note VARCHAR(200) NULL,
     owner_id VARCHAR(10) NOT NULL
 );
 

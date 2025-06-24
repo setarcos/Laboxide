@@ -136,7 +136,7 @@ pub struct Equipment {
     pub value: i64,
     pub position: String,
     pub status: i64,
-    pub note: String,
+    pub note: Option<String>,
     pub owner_id: String,
 }
 
