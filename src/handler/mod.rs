@@ -11,3 +11,4 @@ pub mod studentlog;
 pub mod subschedule;
 pub mod timeline;
 pub mod equipment;
+pub mod meeting;

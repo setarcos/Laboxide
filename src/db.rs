@@ -4,6 +4,7 @@ use crate::models::{User, Semester, Course, Labroom, Equipment, EquipmentHistory
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, Student, CourseSchedule, CourseFile};
 use crate::models::{StudentLog, SubSchedule, StudentTimeline};
+use crate::models::{MeetingRoom, MeetingAgenda};
 use chrono::{Local, Duration, NaiveDateTime};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
@@ -1405,4 +1406,158 @@ pub async fn delete_equipment_history(pool: &SqlitePool, id: i64) -> Result<bool
     .await?;
 
     Ok(result.rows_affected() > 0)
+}
+
+// ========== Meeting Room ==========
+
+pub async fn add_meeting_room(pool: &SqlitePool, room: MeetingRoom) -> Result<MeetingRoom, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        MeetingRoom,
+        r#"
+        INSERT INTO meeting_rooms (room, info)
+        VALUES (?1, ?2)
+        RETURNING id, room, info
+        "#,
+        room.room,
+        room.info
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_meeting_rooms(pool: &SqlitePool) -> Result<Vec<MeetingRoom>, sqlx::Error> {
+    sqlx::query_as!(MeetingRoom, r#"SELECT id, room, info FROM meeting_rooms"#)
+        .fetch_all(pool)
+        .await
+}
+
+
+pub async fn update_meeting_room(pool: &SqlitePool, id: i64, room: MeetingRoom) -> Result<Option<MeetingRoom>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        MeetingRoom,
+        r#"
+        UPDATE meeting_rooms
+        SET room = ?1, info = ?2
+        WHERE id = ?3
+        RETURNING id, room, info
+        "#,
+        room.room,
+        room.info,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_meeting_room(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!("DELETE FROM meeting_rooms WHERE id = ?", id)
+        .execute(pool)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+// ========== Meeting Agenda ==========
+
+pub async fn add_meeting_agenda(pool: &SqlitePool, agenda: MeetingAgenda) -> Result<MeetingAgenda, sqlx::Error> {
+    let rec = sqlx::query_as_unchecked!(
+        MeetingAgenda,
+        r#"
+        INSERT INTO meeting_agendas
+        (title, userid, username, repeat, date, start_time, end_time, room_id, confirm)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        RETURNING id, title, userid, username, repeat, date, start_time, end_time, room_id, confirm
+        "#,
+        agenda.title,
+        agenda.userid,
+        agenda.username,
+        agenda.repeat,
+        agenda.date,
+        agenda.start_time,
+        agenda.end_time,
+        agenda.room_id,
+        agenda.confirm
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_meeting_agendas(pool: &SqlitePool, id: i64) -> Result<Vec<MeetingAgenda>, sqlx::Error> {
+    sqlx::query_as_unchecked!(
+        MeetingAgenda,
+        r#"SELECT id, title, userid, username, repeat, date, start_time, end_time, room_id, confirm FROM meeting_agendas where room_id=?"#, id
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn get_meeting_agenda_by_id(pool: &SqlitePool, id: i64) -> Result<Option<MeetingAgenda>, sqlx::Error> {
+    sqlx::query_as_unchecked!(
+        MeetingAgenda,
+        r#"
+        SELECT id, title, userid, username, repeat, date, start_time, end_time, room_id, confirm
+        FROM meeting_agendas WHERE id = ?
+        "#,
+        id
+    )
+    .fetch_optional(pool)
+    .await
+}
+
+pub async fn update_meeting_agenda(pool: &SqlitePool, id: i64, agenda: MeetingAgenda) -> Result<Option<MeetingAgenda>, sqlx::Error> {
+    let rec = sqlx::query_as_unchecked!(
+        MeetingAgenda,
+        r#"
+        UPDATE meeting_agendas
+        SET title = ?1, userid = ?2, username = ?3, repeat = ?4, date = ?5,
+            start_time = ?6, end_time = ?7, room_id = ?8, confirm = ?8
+        WHERE id = ?10
+        RETURNING id, title, userid, username, repeat, date, start_time, end_time, room_id, confirm
+        "#,
+        agenda.title,
+        agenda.userid,
+        agenda.username,
+        agenda.repeat,
+        agenda.date,
+        agenda.start_time,
+        agenda.end_time,
+        agenda.room_id,
+        agenda.confirm,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_meeting_agenda(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!("DELETE FROM meeting_agendas WHERE id = ?", id)
+        .execute(pool)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn confirm_meeting_agenda(pool: &SqlitePool, id: i64) -> Result<Option<MeetingAgenda>, sqlx::Error> {
+    let rec = sqlx::query_as_unchecked!(
+        MeetingAgenda,
+        r#"
+        UPDATE meeting_agendas
+        SET confirm = 1
+        WHERE id = ?1
+        RETURNING id, title, userid, username, repeat, date, start_time, end_time, room_id, confirm
+        "#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
 }

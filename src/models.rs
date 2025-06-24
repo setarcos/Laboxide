@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
@@ -149,4 +149,25 @@ pub struct EquipmentHistory {
     pub note: String,
     pub returned_date: Option<NaiveDateTime>,
     pub item_id: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MeetingRoom {
+    pub id: Option<i64>,
+    pub room: String,
+    pub info: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MeetingAgenda {
+    pub id: Option<i64>,
+    pub title: String,
+    pub userid: String,
+    pub username: String,
+    pub repeat: i64,
+    pub date: NaiveDate,
+    pub start_time: NaiveTime,
+    pub end_time: NaiveTime,
+    pub room_id: i64,
+    pub confirm: i64,
 }

@@ -120,3 +120,22 @@ CREATE TABLE IF NOT EXISTS equipment_histories (
     returned_date DATETIME NULL,
     item_id INTEGER NOT NULL REFERENCES equipments (id)
 );
+
+CREATE TABLE IF NOT EXISTS meeting_rooms (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    room VARCHAR(15) NOT NULL,
+    info VARCHAR(200) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS meeting_agendas (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    title VARCHAR(200) NOT NULL,
+    userid VARCHAR(12) NOT NULL,
+    username VARCHAR(40) NOT NULL,
+    repeat integer NOT NULL,
+    date date NOT NULL,
+    start_time time NOT NULL,
+    end_time time NOT NULL,
+    room_id integer NOT NULL REFERENCES meeting_rooms (id),
+    confirm integer NOT NULL
+);
