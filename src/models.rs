@@ -139,3 +139,14 @@ pub struct Equipment {
     pub note: String,
     pub owner_id: String,
 }
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+pub struct EquipmentHistory {
+    pub id: i64,
+    pub user: String,
+    pub borrowed_date: NaiveDateTime,
+    pub telephone: String,
+    pub note: String,
+    pub returned_date: Option<NaiveDateTime>,
+    pub item_id: i64,
+}

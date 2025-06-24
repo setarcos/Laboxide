@@ -114,9 +114,9 @@ CREATE TABLE IF NOT EXISTS equipments (
 CREATE TABLE IF NOT EXISTS equipment_histories (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     user VARCHAR(20) NOT NULL,
-    date DATETIME NOT NULL,
+    borrowed_date DATETIME NOT NULL,
     telephone VARCHAR(20) NOT NULL,
     note VARCHAR(200) NOT NULL,
-    return DATETIME NULL,
+    returned_date DATETIME NULL,
     item_id INTEGER NOT NULL REFERENCES equipments (id)
 );

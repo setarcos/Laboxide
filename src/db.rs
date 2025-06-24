@@ -1,6 +1,6 @@
 use actix_web::Result;
 use sqlx::{Pool, Sqlite, SqlitePool};
-use crate::models::{User, Semester, Course, Labroom, Equipment};
+use crate::models::{User, Semester, Course, Labroom, Equipment, EquipmentHistory};
 use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, Student, CourseSchedule, CourseFile};
 use crate::models::{StudentLog, SubSchedule, StudentTimeline};
@@ -1304,6 +1304,107 @@ pub async fn delete_equipment(pool: &SqlitePool, id: i64, owner_id: &str) -> Res
         r#"DELETE FROM equipments WHERE id = ? AND owner_id = ?"#,
         id,
         owner_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn add_equipment_history(
+    pool: &SqlitePool,
+    history: EquipmentHistory,
+) -> Result<EquipmentHistory, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        EquipmentHistory,
+        r#"
+        INSERT INTO equipment_histories (user, borrowed_date, telephone, note, returned_date, item_id)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        RETURNING id, user, borrowed_date, telephone, note, returned_date, item_id
+        "#,
+        history.user,
+        history.borrowed_date,
+        history.telephone,
+        history.note,
+        history.returned_date,
+        history.item_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn list_equipment_histories_by_item(
+    pool: &SqlitePool,
+    item_id: i64,
+) -> Result<Vec<EquipmentHistory>, sqlx::Error> {
+    let recs = sqlx::query_as!(
+        EquipmentHistory,
+        r#"
+        SELECT id, user, borrowed_date, telephone, note, returned_date, item_id
+        FROM equipment_histories
+        WHERE item_id = ?
+        ORDER BY borrowed_date DESC
+        "#,
+        item_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(recs)
+}
+
+pub async fn get_equipment_history_by_id(
+    pool: &SqlitePool,
+    id: i64,
+) -> Result<Option<EquipmentHistory>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        EquipmentHistory,
+        r#"
+        SELECT id, user, borrowed_date, telephone, note, returned_date, item_id
+        FROM equipment_histories
+        WHERE id = ?
+        "#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn update_equipment_history(
+    pool: &SqlitePool,
+    id: i64,
+    history: EquipmentHistory,
+) -> Result<Option<EquipmentHistory>, sqlx::Error> {
+    let rec = sqlx::query_as!(
+        EquipmentHistory,
+        r#"
+        UPDATE equipment_histories
+        SET user = ?1, borrowed_date = ?2, telephone = ?3, note = ?4, returned_date = ?5, item_id = ?6
+        WHERE id = ?7
+        RETURNING id, user, borrowed_date, telephone, note, returned_date, item_id
+        "#,
+        history.user,
+        history.borrowed_date,
+        history.telephone,
+        history.note,
+        history.returned_date,
+        history.item_id,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(rec)
+}
+
+pub async fn delete_equipment_history(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM equipment_histories WHERE id = ?",
+        id
     )
     .execute(pool)
     .await?;
