@@ -61,7 +61,8 @@ pub async fn iaaa_callback(
             return HttpResponse::Ok().json(user);
         } else {
             match db::get_user_by_id(&db_pool, parts[1]).await {
-                Ok(user) => {
+                Ok(mut user) => {
+                    user.permission |= PERMISSION_TEACHER;
                     put_user_in_session(&session, &user);
                     return HttpResponse::Ok().json(user);
                 },
