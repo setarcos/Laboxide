@@ -9,15 +9,8 @@ use crate::models::{Equipment, EquipmentHistory};
 pub async fn create_equipment(
     db_pool: web::Data<SqlitePool>,
     item: web::Json<Equipment>,
-    session: Session,
 ) -> impl Responder {
-    let user_id = match session.get::<String>("user_id") {
-        Ok(Some(uid)) => uid,
-        _ => return HttpResponse::Unauthorized().json(json!({ "error": "Not logged in" })),
-    };
-
-    let mut equipment = item.into_inner();
-    equipment.owner_id = user_id;
+    let equipment = item.into_inner();
 
     match db::add_equipment(&db_pool, equipment).await {
         Ok(equipment) => HttpResponse::Ok().json(equipment),
@@ -52,9 +45,25 @@ pub async fn get_equipment(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::get_equipment_by_id(&db_pool, id).await {
-        Ok(Some(equipment)) => HttpResponse::Ok().json(equipment),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Equipment not found" })),
+        Ok(equipment) => HttpResponse::Ok().json(equipment),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    }
+}
+
+pub async fn check_equip_perm(
+    db_pool: &web::Data<SqlitePool>,
+    session: &Session,
+    equip_id: i64,
+) -> Result<(), HttpResponse> {
+    let user: String = session.get::<String>("user_id").ok().flatten().unwrap_or("".to_string());
+    match db::get_equipment_by_id(db_pool, equip_id).await {
+        Ok(equip) => {
+            if equip.owner_id != user {
+                return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })))
+            }
+            return Ok(())
+        },
+        Err(e) => return Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
     }
 }
 
@@ -66,17 +75,13 @@ pub async fn update_equipment(
     session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
-    let user_id = match session.get::<String>("user_id") {
-        Ok(Some(uid)) => uid,
-        _ => return HttpResponse::Unauthorized().json(json!({ "error": "Not logged in" })),
-    };
+    if let Err(e) = check_equip_perm(&db_pool, &session, id).await {
+        return e;
+    }
 
-    let mut equipment = item.into_inner();
-    equipment.owner_id = user_id.clone();
-
+    let equipment = item.into_inner();
     match db::update_equipment(&db_pool, id, equipment).await {
-        Ok(Some(equipment)) => HttpResponse::Ok().json(equipment),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Equipment not found" })),
+        Ok(equipment) => HttpResponse::Ok().json(equipment),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -88,12 +93,11 @@ pub async fn delete_equipment(
     session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
-    let user_id = match session.get::<String>("user_id") {
-        Ok(Some(uid)) => uid,
-        _ => return HttpResponse::Unauthorized().json(json!({ "error": "Not logged in" })),
-    };
+    if let Err(e) = check_equip_perm(&db_pool, &session, id).await {
+        return e;
+    }
 
-    match db::delete_equipment(&db_pool, id, &user_id).await {
+    match db::delete_equipment(&db_pool, id).await {
         Ok(true) => HttpResponse::Ok().json(json!({ "message": "Equipment deleted" })),
         Ok(false) => HttpResponse::NotFound().json(json!({ "error": "Equipment not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
@@ -117,9 +121,13 @@ pub struct NewEquipmentHistory {
 #[post("/equipment/history")]
 pub async fn create_equipment_history(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
     item: web::Json<NewEquipmentHistory>,
 ) -> impl Responder {
     let new_item = item.into_inner();
+    if let Err(e) = check_equip_perm(&db_pool, &session, new_item.item_id).await {
+        return e;
+    }
     let now = chrono::Local::now().naive_local();
 
     let history = EquipmentHistory {
@@ -140,12 +148,17 @@ pub async fn create_equipment_history(
 #[get("/equipment/history/{id}")]
 pub async fn get_equipment_history(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
     path: web::Path<i64>,
 ) -> impl Responder {
     let id = path.into_inner();
     match db::get_equipment_history_by_id(&db_pool, id).await {
-        Ok(Some(history)) => HttpResponse::Ok().json(history),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "History not found" })),
+        Ok(history) => {
+            if let Err(e) = check_equip_perm(&db_pool, &session, history.item_id).await {
+                return e
+            }
+            return HttpResponse::Ok().json(history)
+        },
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -153,9 +166,13 @@ pub async fn get_equipment_history(
 #[get("/equipment/{item_id}/histories")]
 pub async fn list_histories_by_item(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
     path: web::Path<i64>,
 ) -> impl Responder {
     let item_id = path.into_inner();
+    if let Err(e) = check_equip_perm(&db_pool, &session, item_id).await {
+        return e;
+    }
     match db::list_equipment_histories_by_item(&db_pool, item_id).await {
         Ok(list) => HttpResponse::Ok().json(list),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
@@ -165,13 +182,16 @@ pub async fn list_histories_by_item(
 #[put("/equipment/history/{item_id}")]
 pub async fn update_equipment_history(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
     path: web::Path<i64>,
 ) -> impl Responder {
     let item_id = path.into_inner();
+    if let Err(e) = check_equip_perm(&db_pool, &session, item_id).await {
+        return e;
+    }
     let now = chrono::Local::now().naive_local();
     match db::update_equipment_history(&db_pool, item_id, now).await {
-        Ok(Some(history)) => HttpResponse::Ok().json(history),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "History not found" })),
+        Ok(history) => HttpResponse::Ok().json(history),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -179,9 +199,15 @@ pub async fn update_equipment_history(
 #[delete("/equipment/history/{id}")]
 pub async fn delete_equipment_history(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
     path: web::Path<i64>,
 ) -> impl Responder {
     let id = path.into_inner();
+    if let Ok(history) = db::get_equipment_history_by_id(&db_pool, id).await {
+        if let Err(e) = check_equip_perm(&db_pool, &session, history.item_id).await {
+            return e
+        }
+    }
     match db::delete_equipment_history(&db_pool, id).await {
         Ok(true) => HttpResponse::Ok().json(json!({ "message": "Deleted" })),
         Ok(false) => HttpResponse::NotFound().json(json!({ "error": "History not found" })),

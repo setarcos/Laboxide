@@ -5,7 +5,7 @@ use sqlx::SqlitePool;
 
 use crate::db;
 use crate::models::{MeetingRoom, MeetingAgenda};
-use crate::config::PERMISSION_MEETING_MANAGER;
+use crate::config::{PERMISSION_MEETING_MANAGER, PERMISSION_ADMIN};
 
 #[post("/meeting_room")]
 pub async fn create_meeting_room(
@@ -34,8 +34,7 @@ pub async fn update_meeting_room(
 ) -> impl Responder {
     let id = path.into_inner();
     match db::update_meeting_room(&db_pool, id, item.into_inner()).await {
-        Ok(Some(room)) => HttpResponse::Ok().json(room),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Meeting room not found" })),
+        Ok(room) => HttpResponse::Ok().json(room),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -90,9 +89,29 @@ pub async fn get_meeting_agenda(
     path: web::Path<i64>,
 ) -> impl Responder {
     match db::get_meeting_agenda_by_id(&db_pool, path.into_inner()).await {
-        Ok(Some(agenda)) => HttpResponse::Ok().json(agenda),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Meeting agenda not found" })),
+        Ok(agenda) => HttpResponse::Ok().json(agenda),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    }
+}
+
+pub async fn check_meeting_perm(
+    db_pool: &web::Data<SqlitePool>,
+    session: &Session,
+    agenda_id: i64,
+) -> Result<(), HttpResponse> {
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
+    if permission & (PERMISSION_MEETING_MANAGER | PERMISSION_ADMIN) != 0 {
+        return Ok(())
+    }
+    let user: String = session.get::<String>("user_id").ok().flatten().unwrap_or("".to_string());
+    match db::get_meeting_agenda_by_id(db_pool, agenda_id).await {
+        Ok(agenda) => {
+            if (agenda.confirm == 1) || (agenda.userid != user) {
+                return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })))
+            }
+            return Ok(())
+        },
+        Err(e) => return Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
     }
 }
 
@@ -103,15 +122,13 @@ pub async fn update_meeting_agenda(
     path: web::Path<i64>,
     item: web::Json<MeetingAgenda>,
 ) -> impl Responder {
-    let mut agenda = item.into_inner();
-    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
-    if permission & PERMISSION_MEETING_MANAGER != 0 {
-        agenda.confirm = 1;
+    let agenda = item.into_inner();
+    let agenda_id = path.into_inner();
+    if let Err(e) = check_meeting_perm(&db_pool, &session, agenda_id).await {
+        return e;
     }
-
-    match db::update_meeting_agenda(&db_pool, path.into_inner(), agenda).await {
-        Ok(Some(updated)) => HttpResponse::Ok().json(updated),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Meeting agenda not found" })),
+    match db::update_meeting_agenda(&db_pool, agenda_id, agenda).await {
+        Ok(updated) => HttpResponse::Ok().json(updated),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -142,15 +159,13 @@ pub async fn confirm_meeting_agenda(
     }
 
     match db::confirm_meeting_agenda(&db_pool, id).await {
-        Ok(Some(agenda)) => HttpResponse::Ok().json(agenda),
-        Ok(None) => HttpResponse::NotFound().json(json!({ "error": "Meeting agenda not found" })),
+        Ok(agenda) => HttpResponse::Ok().json(agenda),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
 
 pub fn init_meeting_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_meeting_room)
-       .service(list_meeting_rooms)
        .service(update_meeting_room)
        .service(delete_meeting_room);
 }
@@ -158,6 +173,7 @@ pub fn init_meeting_routes(cfg: &mut web::ServiceConfig) {
 pub fn init_agenda_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_meeting_agenda)
        .service(list_meeting_agendas)
+       .service(list_meeting_rooms)
        .service(get_meeting_agenda)
        .service(update_meeting_agenda)
        .service(confirm_meeting_agenda)

@@ -1260,7 +1260,7 @@ pub async fn list_equipments(
     Ok(equipments)
 }
 
-pub async fn get_equipment_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Equipment>, sqlx::Error> {
+pub async fn get_equipment_by_id(pool: &SqlitePool, id: i64) -> Result<Equipment, sqlx::Error> {
     let equipment = sqlx::query_as!(
         Equipment,
         r#"
@@ -1270,13 +1270,13 @@ pub async fn get_equipment_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Eq
         "#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(equipment)
 }
 
-pub async fn update_equipment(pool: &SqlitePool, id: i64, equipment: Equipment) -> Result<Option<Equipment>, sqlx::Error> {
+pub async fn update_equipment(pool: &SqlitePool, id: i64, equipment: Equipment) -> Result<Equipment, sqlx::Error> {
     let rec = sqlx::query_as!(
         Equipment,
         r#"
@@ -1294,17 +1294,16 @@ pub async fn update_equipment(pool: &SqlitePool, id: i64, equipment: Equipment) 
         id,
         equipment.owner_id,
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
 }
 
-pub async fn delete_equipment(pool: &SqlitePool, id: i64, owner_id: &str) -> Result<bool, sqlx::Error> {
+pub async fn delete_equipment(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
     let result = sqlx::query!(
-        r#"DELETE FROM equipments WHERE id = ? AND owner_id = ?"#,
-        id,
-        owner_id
+        r#"DELETE FROM equipments WHERE id = ?"#,
+        id
     )
     .execute(pool)
     .await?;
@@ -1359,7 +1358,7 @@ pub async fn list_equipment_histories_by_item(
 pub async fn get_equipment_history_by_id(
     pool: &SqlitePool,
     id: i64,
-) -> Result<Option<EquipmentHistory>, sqlx::Error> {
+) -> Result<EquipmentHistory, sqlx::Error> {
     let rec = sqlx::query_as!(
         EquipmentHistory,
         r#"
@@ -1369,7 +1368,7 @@ pub async fn get_equipment_history_by_id(
         "#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
@@ -1379,19 +1378,19 @@ pub async fn update_equipment_history(
     pool: &SqlitePool,
     item_id: i64,
     returned_date: NaiveDateTime,
-) -> Result<Option<EquipmentHistory>, sqlx::Error> {
+) -> Result<EquipmentHistory, sqlx::Error> {
     let rec = sqlx::query_as!(
         EquipmentHistory,
         r#"
         UPDATE equipment_histories
         SET returned_date = ?1
-        WHERE item_id = ?2
+        WHERE item_id = ?2 and returned_date = NULL
         RETURNING id, user, borrowed_date, telephone, note, returned_date, item_id
         "#,
         returned_date,
         item_id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
@@ -1434,7 +1433,7 @@ pub async fn list_meeting_rooms(pool: &SqlitePool) -> Result<Vec<MeetingRoom>, s
 }
 
 
-pub async fn update_meeting_room(pool: &SqlitePool, id: i64, room: MeetingRoom) -> Result<Option<MeetingRoom>, sqlx::Error> {
+pub async fn update_meeting_room(pool: &SqlitePool, id: i64, room: MeetingRoom) -> Result<MeetingRoom, sqlx::Error> {
     let rec = sqlx::query_as!(
         MeetingRoom,
         r#"
@@ -1447,7 +1446,7 @@ pub async fn update_meeting_room(pool: &SqlitePool, id: i64, room: MeetingRoom) 
         room.info,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
@@ -1497,7 +1496,7 @@ pub async fn list_meeting_agendas(pool: &SqlitePool, id: i64) -> Result<Vec<Meet
     .await
 }
 
-pub async fn get_meeting_agenda_by_id(pool: &SqlitePool, id: i64) -> Result<Option<MeetingAgenda>, sqlx::Error> {
+pub async fn get_meeting_agenda_by_id(pool: &SqlitePool, id: i64) -> Result<MeetingAgenda, sqlx::Error> {
     sqlx::query_as_unchecked!(
         MeetingAgenda,
         r#"
@@ -1506,11 +1505,11 @@ pub async fn get_meeting_agenda_by_id(pool: &SqlitePool, id: i64) -> Result<Opti
         "#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await
 }
 
-pub async fn update_meeting_agenda(pool: &SqlitePool, id: i64, agenda: MeetingAgenda) -> Result<Option<MeetingAgenda>, sqlx::Error> {
+pub async fn update_meeting_agenda(pool: &SqlitePool, id: i64, agenda: MeetingAgenda) -> Result<MeetingAgenda, sqlx::Error> {
     let rec = sqlx::query_as_unchecked!(
         MeetingAgenda,
         r#"
@@ -1531,7 +1530,7 @@ pub async fn update_meeting_agenda(pool: &SqlitePool, id: i64, agenda: MeetingAg
         agenda.confirm,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
@@ -1545,7 +1544,7 @@ pub async fn delete_meeting_agenda(pool: &SqlitePool, id: i64) -> Result<bool, s
     Ok(result.rows_affected() > 0)
 }
 
-pub async fn confirm_meeting_agenda(pool: &SqlitePool, id: i64) -> Result<Option<MeetingAgenda>, sqlx::Error> {
+pub async fn confirm_meeting_agenda(pool: &SqlitePool, id: i64) -> Result<MeetingAgenda, sqlx::Error> {
     let rec = sqlx::query_as_unchecked!(
         MeetingAgenda,
         r#"
@@ -1556,7 +1555,7 @@ pub async fn confirm_meeting_agenda(pool: &SqlitePool, id: i64) -> Result<Option
         "#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
     Ok(rec)
