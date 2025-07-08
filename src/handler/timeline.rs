@@ -90,8 +90,8 @@ pub async fn create_timeline(
         return HttpResponse::BadRequest().json(json!({ "error": "Missing required parameters" }));
     }
     // Save file if it's a file note
-    if note_type == Some(1) && note_filename.is_some() && stu_id.is_some() {
-        let upload_dir = format!("uploads/courses/{}", stu_id.as_ref().unwrap());
+    if note_type == Some(1) && note_filename.is_some() && stu_id.is_some() && subcourse_id.is_some() {
+        let upload_dir = format!("uploads/coursetl/{}/{}", subcourse_id.as_ref().unwrap(), stu_id.as_ref().unwrap());
         fs::create_dir_all(&upload_dir).unwrap();
 
         let original_name = note_filename.as_ref().unwrap();
@@ -198,7 +198,7 @@ pub async fn delete_timeline(
     match check_timeline_permission(&db_pool, id, &session).await {
         Ok(timeline) => {
             if timeline.notetype == 1 {
-                let file_path = format!("uploads/courses/{}/{}", timeline.stu_id, timeline.note);
+                let file_path = format!("uploads/coursetl/{}/{}/{}", timeline.subcourse_id, timeline.stu_id, timeline.note);
                 let _ = std::fs::remove_file(&file_path);
             }
 
@@ -256,7 +256,7 @@ pub async fn download_timeline_file(
 
     match db::get_timeline_by_id(&db_pool, id).await {
         Ok(entry) if entry.notetype == 1 => {
-            let file_path = format!("uploads/courses/{}/{}", entry.stu_id, entry.note);
+            let file_path = format!("uploads/coursetl/{}/{}/{}", entry.subcourse_id, entry.stu_id, entry.note);
             match NamedFile::open_async(&file_path).await {
                 Ok(file) => file.into_response(&req),
                 Err(_) => HttpResponse::NotFound().body("File not found"),
