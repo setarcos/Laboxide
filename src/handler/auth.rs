@@ -153,7 +153,7 @@ pub async fn iaaa_callback(
         permission: 0,
     };
     // In a real app, you might look up the user in a DB here.
-    let mut perm = if user_info.identity_type == "TEACHER" { PERMISSION_TEACHER } else { PERMISSION_STUDENT };
+    let mut perm = if user_info.identity_type == "职工" { PERMISSION_TEACHER } else { PERMISSION_STUDENT };
     let db_user_result = db::get_user_by_id(&db_pool, &user.user_id).await;
     match db_user_result {
         Ok(db_user) => {
