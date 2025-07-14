@@ -21,9 +21,18 @@ pub async fn create_course(
 #[get("/course")]
 pub async fn list_courses(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
 ) -> impl Responder {
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     match db::list_courses(&db_pool).await {
-        Ok(courses) => HttpResponse::Ok().json(courses),
+        Ok(mut courses) => {
+            if permission & PERMISSION_TEACHER == 0 {
+                for course in &mut courses{
+                    course.tea_id = String::new();
+                }
+            }
+            HttpResponse::Ok().json(courses)
+        }
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -32,10 +41,17 @@ pub async fn list_courses(
 pub async fn get_course(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
 ) -> impl Responder {
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     let id = path.into_inner();
     match db::get_course_by_id(&db_pool, id).await {
-        Ok(course) => HttpResponse::Ok().json(course),
+        Ok(mut course) => {
+            if permission & PERMISSION_TEACHER == 0 {
+                course.tea_id = String::new();
+            }
+            HttpResponse::Ok().json(course)
+        }
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }

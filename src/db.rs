@@ -391,7 +391,7 @@ pub async fn list_subcourses(
     }
 }
 
-pub async fn get_subcourse_with_name(pool: &SqlitePool, id: i64) -> Result<Option<SubCourseWithName>, sqlx::Error> {
+pub async fn get_subcourse_with_name(pool: &SqlitePool, id: i64) -> Result<SubCourseWithName, sqlx::Error> {
     sqlx::query_as!(
         SubCourseWithName,
         r#"
@@ -405,7 +405,7 @@ pub async fn get_subcourse_with_name(pool: &SqlitePool, id: i64) -> Result<Optio
         "#,
         id
     )
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await
 }
 

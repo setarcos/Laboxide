@@ -1,7 +1,8 @@
 use actix_web::{get, post, put, delete, web, HttpResponse, Responder};
 use serde_json::json;
 use sqlx::SqlitePool;
-
+use actix_session::Session;
+use crate::config::PERMISSION_TEACHER;
 use crate::db;
 use crate::models::Labroom;
 
@@ -19,9 +20,18 @@ pub async fn create_labroom(
 #[get("/labroom")]
 pub async fn list_labrooms(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
 ) -> impl Responder {
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     match db::list_labrooms(&db_pool).await {
-        Ok(labrooms) => HttpResponse::Ok().json(labrooms),
+        Ok(mut labrooms) => {
+            if permission & PERMISSION_TEACHER == 0 {
+                for labroom in &mut labrooms {
+                    labroom.tea_id = String::new();
+                }
+            }
+            HttpResponse::Ok().json(labrooms)
+        }
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -30,10 +40,17 @@ pub async fn list_labrooms(
 pub async fn get_labroom(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
 ) -> impl Responder {
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     let id = path.into_inner();
     match db::get_labroom_by_id(&db_pool, id).await {
-        Ok(labroom) => HttpResponse::Ok().json(labroom),
+        Ok(mut labroom) => {
+            if permission & PERMISSION_TEACHER == 0 {
+                labroom.tea_id = String::new();
+            }
+            HttpResponse::Ok().json(labroom)
+        }
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }

@@ -37,12 +37,21 @@ pub struct SubcourseQuery {
 pub async fn list_subcourses(
     db_pool: web::Data<sqlx::SqlitePool>,
     query: web::Query<SubcourseQuery>,
+    session: Session,
 ) -> impl Responder {
     let course_id = query.course_id;
     let semester_id = query.semester_id;
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
 
     match db::list_subcourses(&db_pool, course_id, semester_id).await {
-        Ok(subcourses) => HttpResponse::Ok().json(subcourses),
+        Ok(mut subcourses) => {
+            if permission & PERMISSION_TEACHER == 0 {
+                for subcourse in &mut subcourses{
+                    subcourse.tea_id = String::new();
+                }
+            }
+            HttpResponse::Ok().json(subcourses)
+        }
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
@@ -69,7 +78,14 @@ pub async fn list_my_subcourses(
     };
 
     match result {
-        Ok(subcourses) => HttpResponse::Ok().json(subcourses),
+        Ok(mut subcourses) =>{
+            if permission & PERMISSION_TEACHER == 0 {
+                for subcourse in &mut subcourses{
+                    subcourse.tea_id = String::new();
+                }
+            }
+            HttpResponse::Ok().json(subcourses)
+        }
         Err(e) => {
             error!("Error listing subcourses: {:?}", e);
             HttpResponse::InternalServerError().json(json!({ "error": "Failed to fetch subcourses" }))
@@ -81,9 +97,16 @@ pub async fn list_my_subcourses(
 pub async fn get_subcourse(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
 ) -> impl Responder {
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     match db::get_subcourse_with_name(&db_pool, path.into_inner()).await {
-        Ok(subcourse) => HttpResponse::Ok().json(subcourse),
+        Ok(mut subcourse) => {
+            if permission & PERMISSION_TEACHER == 0 {
+                subcourse.tea_id = String::new();
+            }
+            HttpResponse::Ok().json(subcourse)
+        }
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
