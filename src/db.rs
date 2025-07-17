@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::models::{SubCourse, SubCourseWithName, Student, CourseSchedule, CourseFile};
 use crate::models::{StudentLog, SubSchedule, StudentTimeline};
 use crate::models::{MeetingRoom, MeetingAgenda};
-use chrono::{Local, Duration, NaiveDateTime};
+use chrono::{Local, Duration, NaiveDateTime, Datelike};
 
 pub async fn init_db(config: &Config) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(&config.database_url).await?;
@@ -1485,6 +1485,44 @@ pub async fn add_meeting_agenda(pool: &SqlitePool, agenda: MeetingAgenda) -> Res
     .await?;
 
     Ok(rec)
+}
+
+pub async fn check_meeting_conflict(
+    pool: &SqlitePool,
+    agenda: &MeetingAgenda,
+) -> Result<Option<MeetingAgenda>, sqlx::Error> {
+    let new_weekday = agenda.date.weekday().num_days_from_sunday().to_string();
+    let new_date = agenda.date;
+    let new_start = agenda.start_time;
+    let new_end = agenda.end_time;
+    let current_id = agenda.id.unwrap_or(-1);
+
+    let conflict = sqlx::query_as_unchecked!(
+        MeetingAgenda,
+        r#"
+        SELECT id, title, userid, username, repeat, date, start_time, end_time, room_id, confirm
+        FROM meeting_agendas
+        WHERE room_id = ?1
+          AND id != ?2
+          AND (
+            (repeat = 0 AND date = ?3)
+            OR
+            (repeat = 1 AND strftime('%w', date) = ?4)
+          )
+          AND (?5 < end_time AND ?6 > start_time)
+        LIMIT 1
+        "#,
+        agenda.room_id,
+        current_id,
+        new_date,
+        new_weekday,
+        new_start,
+        new_end,
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(conflict)
 }
 
 pub async fn list_meeting_agendas(pool: &SqlitePool, id: i64) -> Result<Vec<MeetingAgenda>, sqlx::Error> {

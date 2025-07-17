@@ -60,10 +60,20 @@ pub async fn create_meeting_agenda(
 ) -> impl Responder {
     let mut agenda = item.into_inner();
     let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
-    if permission & PERMISSION_MEETING_MANAGER != 0 {
-        agenda.confirm = 1;
-    } else {
-        agenda.confirm = 0;
+    agenda.confirm = if permission & PERMISSION_MEETING_MANAGER != 0 { 1 } else { 0 };
+
+    // Check conflict before insertion
+    match db::check_meeting_conflict(&db_pool, &agenda).await {
+        Ok(Some(conflict)) => {
+            return HttpResponse::Conflict().json(json!({
+                "error": "Time conflict with existing agenda",
+                "conflict": conflict
+            }))
+        }
+        Ok(None) => {} // Proceed
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }));
+        }
     }
 
     match db::add_meeting_agenda(&db_pool, agenda).await {
