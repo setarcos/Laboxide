@@ -17,9 +17,8 @@ use crate::handler::subschedule::{init_subschedule_routes, list_subschedules};
 use crate::handler::timeline::{init_timeline_routes, list_timelines_by_schedule};
 use crate::handler::equipment::init_equipment_routes;
 use crate::handler::meeting::{init_meeting_routes, init_agenda_routes};
-
-use crate::config::PERMISSION_LAB_MANAGER;
-use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT};
+use crate::handler::linux::add_linux_user;
+use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT, PERMISSION_LAB_MANAGER};
 use crate::middleware::CheckPermission;
 use handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log, get_recent_logs, force_student_log, get_student_logs_by_room};
 mod db;
@@ -35,9 +34,7 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
-    // Initialize the configuration (e.g., secret token)
     let config = Config::from_env();
-
     // Initialize the database pool
     let db_pool = db::init_db(&config).await.unwrap();
 
@@ -109,6 +106,7 @@ async fn main() -> std::io::Result<()> {
                 .configure(init_group_routes)
                 .configure(init_student_log_routes)
                 .service(default_student_log)
+                .service(add_linux_user)
             )
             .service(
                 web::scope("/member")

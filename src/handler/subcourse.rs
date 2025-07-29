@@ -3,7 +3,7 @@ use actix_session::Session;
 use serde_json::json;
 use sqlx::SqlitePool;
 use serde::Deserialize;
-use crate::config::{PERMISSION_STUDENT, PERMISSION_TEACHER};
+use crate::config::{PERMISSION_STUDENT, PERMISSION_TEACHER, PERMISSION_LINUX};
 use log::error;
 use crate::utils::check_course_perm;
 
@@ -62,7 +62,7 @@ pub async fn list_my_subcourses(
     session: Session,
 ) -> impl Responder {
 
-    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
+    let mut permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
     let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or("".to_string());
 
     if user_id.is_empty() {
@@ -81,6 +81,10 @@ pub async fn list_my_subcourses(
         Ok(mut subcourses) =>{
             if permission & PERMISSION_TEACHER == 0 {
                 for subcourse in &mut subcourses{
+                    if subcourse.course_name.starts_with("Linux") {
+                        permission |= PERMISSION_LINUX;
+                        let _ = session.insert("permissions", permission);
+                    }
                     subcourse.tea_id = String::new();
                 }
             }

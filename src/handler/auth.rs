@@ -47,6 +47,7 @@ pub async fn iaaa_callback(
     let token = token_query.into_inner().token;
 
     // --- Backdoor for Development ---
+    // Don't put APP_ENV in Config, thus can open backdoor without restarting the server.
     let app_env = env::var("APP_ENV").unwrap_or_else(|_| "production".to_string());
     if app_env == "development" && (token.starts_with("Student") || token.starts_with("Teacher")) {
         log::info!("Using development backdoor for token: {}", token);
