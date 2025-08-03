@@ -39,9 +39,7 @@ async fn main() -> std::io::Result<()> {
     let db_pool = db::init_db(&config).await.unwrap();
 
     // Initialize session secret key
-    let secret_string = std::env::var("SESSION_SECRET_KEY")
-        .expect("SESSION_SECRET_KEY must be set in the environment or .env file");
-    let raw_key = general_purpose::STANDARD.decode(&secret_string)
+    let raw_key = general_purpose::STANDARD.decode(&config.secret)
         .expect("Failed to decode base64 session key. Is it a valid base64 string?");
 
     let secret_key = Key::from(&raw_key);

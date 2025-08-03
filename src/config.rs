@@ -13,6 +13,9 @@ pub struct Config {
     pub database_url: String,
     pub remote_user: String,
     pub remote_host: String,
+    pub secret: String,
+    pub iaaa_id: String,
+    pub iaaa_key: String,
 }
 
 impl Config {
@@ -23,11 +26,20 @@ impl Config {
             .expect("DATABASE_URL must be set in .env file");
         let remote_user = env::var("REMOTE_USER").unwrap_or_else(|_| "user".into());
         let remote_host = env::var("REMOTE_HOST").unwrap_or_else(|_| "127.0.0.1".into());
+        let secret = env::var("SESSION_SECRET_KEY")
+            .expect("SESSION_SECRET_KEY must be set in .env file");
+        let iaaa_id = env::var("IAAA_APP_ID")
+            .expect("IAAA_APP_ID must be set in .env file");
+        let iaaa_key = env::var("IAAA_KEY")
+            .expect("IAAA_KEY must be set in .env file");
 
         Config {
             database_url,
             remote_user,
             remote_host,
+            secret,
+            iaaa_id,
+            iaaa_key,
         }
     }
 }

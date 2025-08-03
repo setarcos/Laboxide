@@ -4,7 +4,7 @@ use actix_session::Session;
 use serde_json::json;
 use serde::Deserialize;
 use crate::db;
-use crate::config::{PERMISSION_STUDENT, PERMISSION_TEACHER};
+use crate::config::{PERMISSION_STUDENT, PERMISSION_TEACHER, Config};
 use crate::models::User;
 use log::error;
 use std::env;
@@ -40,6 +40,7 @@ fn put_user_in_session(session: &actix_session::Session, user: &User) {
 pub async fn iaaa_callback(
     req: HttpRequest,
     session: Session,
+    config: web::Data<Config>,
     token_query: web::Json<LoginQuery>,
     db_pool: web::Data<sqlx::SqlitePool>,
 ) -> impl Responder {
@@ -94,10 +95,8 @@ pub async fn iaaa_callback(
 
     log::info!("Validating token for IP: {}", ip);
 
-    let app_id = env::var("IAAA_APP_ID").expect("IAAA_APP_ID not set");
-    let iaaa_key = env::var("IAAA_KEY").expect("IAAA_KEY not set");
-
-    let para_to_hash = format!("appId={}&remoteAddr={}&token={}{}", app_id, ip, token, iaaa_key);
+    let para_to_hash = format!("appId={}&remoteAddr={}&token={}{}",
+        &config.iaaa_id, ip, token, &config.iaaa_key);
     let digest = md5::compute(para_to_hash.as_bytes());
     let msg_abs = format!("{:x}", digest);
 
@@ -106,7 +105,7 @@ pub async fn iaaa_callback(
     let res = match client
         .get(url)
         .query(&[
-            ("appId", &app_id),
+            ("appId", &config.iaaa_id),
             ("remoteAddr", &ip),
             ("token", &token),
             ("msgAbs", &msg_abs),
