@@ -17,7 +17,7 @@ use crate::handler::subschedule::{init_subschedule_routes, list_subschedules};
 use crate::handler::timeline::{init_timeline_routes, list_timelines_by_schedule};
 use crate::handler::equipment::init_equipment_routes;
 use crate::handler::meeting::{init_meeting_routes, init_agenda_routes};
-use crate::handler::linux::add_linux_user;
+use crate::handler::linux::{add_linux_user, add_forgejo_user, reset_forgejo_password};
 use crate::config::{Config, PERMISSION_ADMIN, PERMISSION_TEACHER, PERMISSION_STUDENT, PERMISSION_LAB_MANAGER};
 use crate::middleware::CheckPermission;
 use handler::studentlog::{init_student_log_routes, default_student_log, confirm_student_log, get_recent_logs, force_student_log, get_student_logs_by_room};
@@ -105,6 +105,8 @@ async fn main() -> std::io::Result<()> {
                 .configure(init_student_log_routes)
                 .service(default_student_log)
                 .service(add_linux_user)
+                .service(add_forgejo_user)
+                .service(reset_forgejo_password)
             )
             .service(
                 web::scope("/member")

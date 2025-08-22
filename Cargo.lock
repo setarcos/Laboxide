@@ -20,6 +20,7 @@ dependencies = [
  "futures-util",
  "log",
  "md5",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",

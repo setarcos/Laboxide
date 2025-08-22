@@ -16,6 +16,8 @@ pub struct Config {
     pub secret: String,
     pub iaaa_id: String,
     pub iaaa_key: String,
+    pub forge_url: String,
+    pub forge_key: String,
 }
 
 impl Config {
@@ -32,6 +34,10 @@ impl Config {
             .expect("IAAA_APP_ID must be set in .env file");
         let iaaa_key = env::var("IAAA_KEY")
             .expect("IAAA_KEY must be set in .env file");
+        let forge_url = env::var("FORGE_URL")
+            .expect("FORGE_URL must be set in .env file");
+        let forge_key = env::var("FORGE_KEY")
+            .expect("FORGE_KEY must be set in .env file");
 
         Config {
             database_url,
@@ -40,6 +46,8 @@ impl Config {
             secret,
             iaaa_id,
             iaaa_key,
+            forge_url,
+            forge_key,
         }
     }
 }
