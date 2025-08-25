@@ -70,7 +70,7 @@ pub async fn get_current_semester(
 ) -> impl Responder {
     match db::get_current_semester(&db_pool).await {
         Ok(Some(semester)) => HttpResponse::Ok().json(semester),
-        Ok(None) => HttpResponse::Ok().json(json!({ "message": "Currently on vacation" })),
+        Ok(None) => HttpResponse::Ok().json(json!({ "message": "No current semester defined." })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }

@@ -129,7 +129,9 @@ pub async fn get_current_semester(pool: &SqlitePool) -> Result<Option<Semester>,
         r#"
         SELECT id, name, start, end
         FROM semesters
-        WHERE DATE(start) <= DATE(?1) AND DATE(end) >= DATE(?1)
+        WHERE DATE(end) >= DATE(?1)
+        ORDER BY end
+        LIMIT 1
         "#,
         today_str
     )
