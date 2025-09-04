@@ -5,8 +5,10 @@ use actix_files::NamedFile;
 use futures_util::TryStreamExt;
 use serde_json::json;
 use sqlx::SqlitePool;
-use std::fs::File;
+use std::fs::{File, metadata};
 use std::io::Write;
+use chrono::{DateTime, Utc};
+use serde::Serialize;
 
 use crate::utils::check_course_perm;
 use crate::db;
@@ -97,14 +99,58 @@ pub async fn download_course_file(
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct CourseFileResponse {
+    pub id: i64,
+    pub fname: String,
+    pub finfo: String,
+    pub course_id: i64,
+    pub modified_time: Option<String>,
+}
+
 #[get("/coursefile/list/{id}")]
 pub async fn list_course_files(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
 ) -> impl Responder {
-    let id = path.into_inner();
-    match db::list_course_files(&db_pool, id).await {
-        Ok(files) => HttpResponse::Ok().json(files),
+    let course_id = path.into_inner();
+    match db::list_course_files(&db_pool, course_id).await {
+        Ok(files_from_db) => {
+            let mut response_list = Vec::new();
+
+            // Iterate over the files retrieved from the database
+            for file_record in files_from_db {
+                let file_path = format!(
+                    "uploads/courses/{}/{}",
+                    file_record.course_id, file_record.fname
+                );
+
+                // Try to get file metadata and its modified time
+                let modified_time = match metadata(&file_path) {
+                    Ok(metadata) => {
+                        // If metadata is found, get the modified time
+                        metadata.modified().map_or(None, |sys_time| {
+                            // Convert SystemTime to a chrono DateTime object
+                            let datetime: DateTime<Utc> = sys_time.into();
+                            // Format it as an ISO 8601 string
+                            Some(datetime.to_rfc3339())
+                        })
+                    }
+                    Err(_) => None, // If metadata fails (e.g., file not found), return None
+                };
+
+                // Build the new response object
+                response_list.push(CourseFileResponse {
+                    id: file_record.id,
+                    fname: file_record.fname,
+                    finfo: file_record.finfo,
+                    course_id: file_record.course_id,
+                    modified_time, // Add the modified time here
+                });
+            }
+
+            HttpResponse::Ok().json(response_list)
+        }
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
     }
 }
