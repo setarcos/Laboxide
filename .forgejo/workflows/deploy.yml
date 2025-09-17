@@ -35,6 +35,9 @@ jobs:
       - name: List target directory
         run: ls -alh target/release
 
+      - name: Strip the code
+        run: strip --strip-all target/release/${{ env.PROJECT_EXECUTABLE_NAME }}
+
       - name: Prepare SSH Key and Known Hosts
         run: |
           echo "Setting up SSH environment..."
