@@ -562,6 +562,21 @@ pub async fn get_student_seat(
     Ok(seat)
 }
 
+pub async fn get_student_name(
+    pool: &SqlitePool,
+    stu_id: &str,
+    subcourse_id: i64,
+) -> Result<String, sqlx::Error> {
+    let stu = sqlx::query_as!(
+        Student,
+        "SELECT * FROM students WHERE stu_id = ?1 AND subcourse_id = ?2",
+        stu_id, subcourse_id
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(stu.stu_name)
+}
+
 pub async fn get_group_by_subcourse_id(
     pool: &SqlitePool,
     subcourse_id: i64,
@@ -577,6 +592,7 @@ pub async fn get_group_by_subcourse_id(
     Ok(rows)
 }
 
+// group_id is the id for the student in one subcourse
 pub async fn get_student_by_group_id(
     pool: &SqlitePool,
     group_id: i64,

@@ -106,6 +106,9 @@ pub async fn force_student_log(
     let (subcourse_id, stu_id) = path.into_inner();
     let realname: String = session.get::<String>("realname").ok().flatten().unwrap_or_default();
     if let Ok(mut log) = db::get_default_log(&db_pool, &stu_id, subcourse_id).await {
+        if let Ok(stu_name) = db::get_student_name(&db_pool, &stu_id, subcourse_id).await {
+            log.stu_name = stu_name;
+        }
         log.confirm = 1;
         log.tea_name = realname;
         log.tea_note = "Log by T".to_string();
