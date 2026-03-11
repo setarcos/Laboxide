@@ -51,6 +51,8 @@ for row in missing_logs:
     query = "SELECT room_id FROM subcourses WHERE id = ?"
     cursor.execute(query, (row[1],))
     room = cursor.fetchone()[0]
+    if room == 8: # public classroom
+        continue
     query = """
         INSERT INTO student_logs (stu_id, stu_name, subcourse_id, room_id, seat,
         lab_name, note, tea_note, tea_name, fin_time, confirm)
