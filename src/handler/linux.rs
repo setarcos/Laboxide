@@ -1,5 +1,5 @@
 use actix_session::Session;
-use actix_web::{post, patch, web, HttpResponse, Responder};
+use actix_web::{get, post, patch, web, HttpResponse, Responder};
 use serde::Deserialize;
 use serde_json::json;
 use std::process::Command;
@@ -60,6 +60,107 @@ pub async fn add_linux_user(
         }
     }
 }
+
+#[get("/showdiff")]
+pub async fn show_diff(
+    session: Session,
+    config: web::Data<Config>,
+) -> impl Responder {
+    let user_id = match session.get::<String>("user_id") {
+        Ok(Some(id)) if !id.is_empty() => id,
+        _ => return HttpResponse::Unauthorized().json(json!({ "error": "Not authenticated" })),
+    };
+    let permission: i64 = session.get("permissions").unwrap_or_default().unwrap_or(0);
+    if permission & PERMISSION_LINUX == 0 {
+        return HttpResponse::Forbidden().json(json!({ "error": "Permission denied" }));
+    }
+
+    let command_str = format!(
+        "ssh -t {}@{} 'sudo diff -urN /home/{}/vim.good /home/{}/vim.learn'",
+        &config.remote_user,
+        &config.remote_host,
+        &config.remote_user,
+        user_id
+    );
+
+    let result = Command::new("sh")
+        .arg("-c")
+        .arg(&command_str)
+        .output();
+
+    match result {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            match output.status.code() {
+                Some(0) => HttpResponse::Ok().json(json!({ "status": "success", "message": "作业完成" })),
+                Some(1) => {
+                    let lines: Vec<&str> = stdout.lines().collect();
+                    let diff_output = if lines.len() > 3 {
+                        lines[3..].join("\n")
+                    } else {
+                        stdout.to_string()
+                    };
+                    HttpResponse::Ok().json(json!({ "status": "diff", "output": diff_output }))
+                },
+                Some(2) => HttpResponse::InternalServerError().json(json!({ "error": format!("比较失败：{}", stderr) })),
+                _ => HttpResponse::InternalServerError().json(json!({ "error": format!("未知错误：{}", stderr) })),
+            }
+        }
+        Err(e) => {
+            error!("Failed to execute diff command: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({ "error": format!("命令异常：{}", e) }))
+        }
+    }
+}
+
+#[post("/copyvihw")]
+pub async fn copy_vi_hw(
+    session: Session,
+    config: web::Data<Config>,
+) -> impl Responder {
+    let user_id = match session.get::<String>("user_id") {
+        Ok(Some(id)) if !id.is_empty() => id,
+        _ => return HttpResponse::Unauthorized().json(json!({ "error": "Not authenticated" })),
+    };
+    let permission: i64 = session.get("permissions").unwrap_or_default().unwrap_or(0);
+    if permission & PERMISSION_LINUX == 0 {
+        return HttpResponse::Forbidden().json(json!({ "error": "Permission denied" }));
+    }
+
+    let command_str = format!(
+        "ssh -t {}@{} 'sudo cp /home/{}/vim.learn /home/{}/vim.learn; sudo chown {}:{} /home/{}/vim.learn'",
+        &config.remote_user,
+        &config.remote_host,
+        &config.remote_user,
+        user_id,
+        user_id,
+        user_id,
+        user_id
+    );
+
+    let result = Command::new("sh")
+        .arg("-c")
+        .arg(&command_str)
+        .output();
+
+    match result {
+        Ok(output) => {
+            if output.status.success() {
+                HttpResponse::Ok().json(json!({ "status": "success", "message": "作业下发完成" }))
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                error!("SSH copy command failed: {}", stderr);
+                HttpResponse::InternalServerError().json(json!({ "error": format!("作业下发失败: {}", stderr) }))
+            }
+        }
+        Err(e) => {
+            error!("Failed to execute copy command: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({ "error": format!("命令异常：{}", e) }))
+        }
+    }
+}
+
 
 /// Helper function to generate a random, URL-safe string of a given length.
 fn generate_password(length: usize) -> String {
