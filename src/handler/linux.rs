@@ -76,11 +76,11 @@ pub async fn show_diff(
     }
 
     let command_str = format!(
-        "ssh -t {}@{} 'sudo diff -urN /home/{}/vim.good /home/{}/vim.learn'",
+        "ssh -t {}@{} 'sudo diff -urN /home/{}/vim.learn /home/{}/vim.good'",
         &config.remote_user,
         &config.remote_host,
-        &config.remote_user,
-        user_id
+        user_id,
+        &config.remote_user
     );
 
     let result = Command::new("sh")
@@ -93,7 +93,7 @@ pub async fn show_diff(
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
             match output.status.code() {
-                Some(0) => HttpResponse::Ok().json(json!({ "status": "success", "message": "作业完成" })),
+                Some(0) => HttpResponse::Ok().json(json!({ "status": "success", "message": "This homework is complete." })),
                 Some(1) => {
                     let lines: Vec<&str> = stdout.lines().collect();
                     let diff_output = if lines.len() > 3 {
@@ -103,13 +103,13 @@ pub async fn show_diff(
                     };
                     HttpResponse::Ok().json(json!({ "status": "diff", "output": diff_output }))
                 },
-                Some(2) => HttpResponse::InternalServerError().json(json!({ "error": format!("比较失败：{}", stderr) })),
-                _ => HttpResponse::InternalServerError().json(json!({ "error": format!("未知错误：{}", stderr) })),
+                Some(2) => HttpResponse::InternalServerError().json(json!({ "error": format!("Compare failed：{}", stderr) })),
+                _ => HttpResponse::InternalServerError().json(json!({ "error": format!("Unknown error：{}", stderr) })),
             }
         }
         Err(e) => {
             error!("Failed to execute diff command: {:?}", e);
-            HttpResponse::InternalServerError().json(json!({ "error": format!("命令异常：{}", e) }))
+            HttpResponse::InternalServerError().json(json!({ "error": format!("Unknown error：{}", e) }))
         }
     }
 }
@@ -129,14 +129,11 @@ pub async fn copy_vi_hw(
     }
 
     let command_str = format!(
-        "ssh -t {}@{} 'sudo cp /home/{}/vim.learn /home/{}/vim.learn; sudo chown {}:{} /home/{}/vim.learn'",
+        "ssh -t {}@{} '/home/{}/copy_vim.sh {}'",
         &config.remote_user,
         &config.remote_host,
         &config.remote_user,
         user_id,
-        user_id,
-        user_id,
-        user_id
     );
 
     let result = Command::new("sh")
@@ -147,16 +144,16 @@ pub async fn copy_vi_hw(
     match result {
         Ok(output) => {
             if output.status.success() {
-                HttpResponse::Ok().json(json!({ "status": "success", "message": "作业下发完成" }))
+                HttpResponse::Ok().json(json!({ "status": "success", "message": "Homework dispatched." }))
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 error!("SSH copy command failed: {}", stderr);
-                HttpResponse::InternalServerError().json(json!({ "error": format!("作业下发失败: {}", stderr) }))
+                HttpResponse::InternalServerError().json(json!({ "error": format!("Failed to dispatch homework: {}", stderr) }))
             }
         }
         Err(e) => {
             error!("Failed to execute copy command: {:?}", e);
-            HttpResponse::InternalServerError().json(json!({ "error": format!("命令异常：{}", e) }))
+            HttpResponse::InternalServerError().json(json!({ "error": format!("Unknown error：{}", e) }))
         }
     }
 }
