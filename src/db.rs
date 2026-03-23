@@ -1012,7 +1012,7 @@ pub async fn get_default_log(
     log.room_id = subcourse.room_id;
     let semester_id = subcourse.year_id;
     let semester = get_semester_by_id(pool, semester_id).await?;
-    let week = (today.date() - semester.start).num_weeks() + 1 + subcourse.lag_week;
+    let week = (today.date() - semester.start).num_weeks() + 1 - subcourse.lag_week;
     log.seat = get_student_seat(pool, stu_id, subcourse_id).await?;
     match get_schedule_by_week(pool, subcourse.course_id, week).await {
         Ok(Some(sch)) => log.lab_name = sch.name,
