@@ -68,13 +68,22 @@ pub async fn delete_subschedule(
     session: Session,
 ) -> impl Responder {
     let sub_id = path.into_inner();
-    if let Ok(schedule) = db::get_schedule_by_id(&db_pool, sub_id).await {
-        if let Err(err) = check_course_perm(&db_pool, &session, schedule.course_id).await {
-            return err;
+
+    match db::get_subschedule_by_id(&db_pool, sub_id).await {
+        Ok(sub_schedule) => {
+            if let Ok(schedule) = db::get_schedule_by_id(&db_pool, sub_schedule.schedule_id).await {
+                if let Err(err) = check_course_perm(&db_pool, &session, schedule.course_id).await {
+                    return err;
+                }
+            } else {
+                return HttpResponse::NotFound().json(json!({ "error": "Schedule not found" }));
+            }
         }
-    } else {
-        return HttpResponse::NotFound().json(json!({ "error": "Schedule not found" }));
+        Err(_) => {
+            return HttpResponse::NotFound().json(json!({ "error": "SubSchedule not found" }));
+        }
     }
+
     match db::delete_subschedule(&db_pool, sub_id).await {
         Ok(true) => HttpResponse::Ok().json(json!({ "message": "SubSchedule deleted" })),
         Ok(false) => HttpResponse::NotFound().json(json!({ "error": "SubSchedule not found" })),
