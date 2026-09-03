@@ -870,10 +870,10 @@ pub async fn update_student_log(pool: &SqlitePool, id: i64, log: StudentLog) -> 
     sqlx::query!(
         r#"
         UPDATE student_logs
-        SET seat = ?1, note = ?2, fin_time = ?3, lab_name = ?4, fin_time = ?5
-        WHERE id = ?6 AND confirm = 0
+        SET seat = ?1, note = ?2, lab_name = ?3, fin_time = ?4
+        WHERE id = ?5 AND confirm = 0
         "#,
-        log.seat, log.note, log.fin_time, log.lab_name, now, id
+        log.seat, log.note, log.lab_name, now, id
     )
     .execute(pool)
     .await?;
@@ -1402,7 +1402,7 @@ pub async fn update_equipment_history(
         r#"
         UPDATE equipment_histories
         SET returned_date = ?1
-        WHERE item_id = ?2 and returned_date = NULL
+        WHERE item_id = ?2 AND returned_date IS NULL
         RETURNING id, user, borrowed_date, telephone, note, returned_date, item_id
         "#,
         returned_date,
@@ -1571,7 +1571,7 @@ pub async fn update_meeting_agenda(pool: &SqlitePool, id: i64, agenda: MeetingAg
         r#"
         UPDATE meeting_agendas
         SET title = ?1, userid = ?2, username = ?3, repeat = ?4, date = ?5,
-            start_time = ?6, end_time = ?7, room_id = ?8, confirm = ?8
+            start_time = ?6, end_time = ?7, room_id = ?8, confirm = ?9
         WHERE id = ?10
         RETURNING id, title, userid, username, repeat, date, start_time, end_time, room_id, confirm
         "#,
