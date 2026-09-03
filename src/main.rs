@@ -1,7 +1,8 @@
 // src/main.rs
 use actix_web::{App, HttpServer, web, cookie::Key, middleware::Logger};
 use actix_session::{SessionMiddleware, storage::CookieSessionStore};
-use actix_web::cookie::SameSite;
+use actix_session::config::{PersistentSession, TtlExtensionPolicy};
+use actix_web::cookie::{SameSite, time::Duration};
 use base64::{Engine as _, engine::general_purpose};
 use crate::handler::auth::init_auth_routes;
 use crate::handler::user::init_user_routes;
@@ -52,7 +53,13 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), secret_key.clone())
-                .cookie_same_site(SameSite::Lax) // optional, but recommended for login
+                .cookie_same_site(SameSite::Lax)
+                .cookie_secure(config.cookie_secure)
+                .session_lifecycle(
+                    PersistentSession::default()
+                        .session_ttl(Duration::hours(config.session_ttl_hours))
+                        .session_ttl_extension_policy(TtlExtensionPolicy::OnEveryRequest),
+                )
                 .build(),
             )
             .configure(init_auth_routes) // Register authentication routes

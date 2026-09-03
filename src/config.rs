@@ -18,6 +18,8 @@ pub struct Config {
     pub iaaa_key: String,
     pub forge_url: String,
     pub forge_key: String,
+    pub cookie_secure: bool,
+    pub session_ttl_hours: i64,
 }
 
 impl Config {
@@ -39,6 +41,24 @@ impl Config {
         let forge_key = env::var("FORGE_KEY")
             .expect("FORGE_KEY must be set in .env file");
 
+        // Whether the session cookie should carry the `Secure` attribute.
+        // Defaults to true (safe for HTTPS deployments). Set to false when the
+        // front end is served over plain HTTP (e.g. local development).
+        let cookie_secure = env::var("COOKIE_SECURE")
+            .map(|v| {
+                let v = v.trim().to_ascii_lowercase();
+                v == "1" || v == "true" || v == "yes" || v == "on"
+            })
+            .unwrap_or(true);
+
+        // Absolute lifetime (in hours) of a session, refreshed on every request
+        // (sliding expiration): a user is logged out after this much inactivity.
+        let session_ttl_hours = env::var("SESSION_TTL_HOURS")
+            .ok()
+            .and_then(|v| v.trim().parse::<i64>().ok())
+            .filter(|h| *h > 0)
+            .unwrap_or(12);
+
         Config {
             database_url,
             remote_user,
@@ -48,6 +68,8 @@ impl Config {
             iaaa_key,
             forge_url,
             forge_key,
+            cookie_secure,
+            session_ttl_hours,
         }
     }
 }
