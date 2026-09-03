@@ -91,7 +91,7 @@ pub struct CourseFile {
     pub course_id: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct StudentLog {
     pub id: i64,
     pub stu_id: String,

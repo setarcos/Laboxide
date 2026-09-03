@@ -1616,3 +1616,7 @@ pub async fn confirm_meeting_agenda(pool: &SqlitePool, id: i64) -> Result<Meetin
 
     Ok(rec)
 }
+
+#[cfg(test)]
+#[path = "db_tests.rs"]
+mod tests;

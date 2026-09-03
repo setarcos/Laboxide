@@ -314,3 +314,61 @@ pub async fn reset_forgejo_password(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::remote_shell_quote;
+    use std::process::Command;
+
+    /// Ask a real POSIX shell to parse the quoted value and echo it back: if
+    /// `remote_shell_quote` is correct the shell must reproduce the payload as
+    /// one single literal token, whatever metacharacters it contains.
+    fn shell_roundtrip(payload: &str) -> String {
+        let quoted = remote_shell_quote(payload);
+        let out = Command::new("sh")
+            .args(["-c", &format!("printf '%s' {}", quoted)])
+            .output()
+            .expect("sh must run");
+        assert!(out.status.success(), "shell rejected the quoting");
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    #[test]
+    fn quote_wraps_plain_values() {
+        assert_eq!(remote_shell_quote("abc123"), "'abc123'");
+        assert_eq!(shell_roundtrip("abc123"), "abc123");
+    }
+
+    #[test]
+    fn quote_handles_spaces_and_unicode() {
+        assert_eq!(shell_roundtrip("学生 张三"), "学生 张三");
+        assert_eq!(shell_roundtrip("two  spaces"), "two  spaces");
+    }
+
+    #[test]
+    fn quote_neutralizes_command_injection_payloads() {
+        for payload in [
+            "foo; rm -rf /",
+            "$(touch /tmp/pwned)",
+            "`touch /tmp/pwned`",
+            r#"a"b$(id)"#,
+            "x > /dev/null &",
+            "| cat /etc/passwd",
+        ] {
+            let quoted = remote_shell_quote(payload);
+            assert!(quoted.starts_with('\'') && quoted.ends_with('\''));
+            assert_eq!(shell_roundtrip(payload), payload, "payload: {payload}");
+        }
+    }
+
+    #[test]
+    fn quote_escapes_embedded_single_quotes() {
+        assert_eq!(remote_shell_quote("a'b"), "'a'\\''b'");
+        assert_eq!(shell_roundtrip("a'b'c"), "a'b'c");
+    }
+
+    #[test]
+    fn quote_preserves_newlines_and_tabs() {
+        assert_eq!(shell_roundtrip("line1\nline2\tend"), "line1\nline2\tend");
+    }
+}
