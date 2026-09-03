@@ -26,21 +26,19 @@ pub async fn add_linux_user(
     }
     let sshkey = &payload.sshkey;
 
-    // Build command
-    let command_str = format!(
-        "ssh -t {}@{} '/home/{}/manage_user.sh \"{}\" \"{}\"'",
-        &config.remote_user,
-        &config.remote_host,
-        &config.remote_user,
-        user_id,
-        sshkey.replace('\"', "\\\"") // sanitize quotes
+    // Build the remote command line. ssh concatenates argv into a single line
+    // that the *remote* login shell evaluates, so interpolated values are
+    // quoted with `remote_shell_quote`; nothing is ever run through a local
+    // shell, so no local command injection is possible.
+    let remote_cmd = format!(
+        "/home/{}/manage_user.sh {} {}",
+        config.remote_user,
+        remote_shell_quote(&user_id),
+        remote_shell_quote(sshkey)
     );
 
-    // Run command
-    let result = Command::new("sh")
-        .arg("-c")
-        .arg(&command_str)
-        .output();
+    // Run ssh directly via an argv array (no `sh -c`).
+    let result = run_ssh(&config.remote_user, &config.remote_host, &remote_cmd);
 
     match result {
         Ok(output) => {
@@ -75,18 +73,13 @@ pub async fn show_diff(
         return HttpResponse::Forbidden().json(json!({ "error": "Permission denied" }));
     }
 
-    let command_str = format!(
-        "ssh -t {}@{} 'sudo diff -urN /home/{}/vim.learn /home/{}/vim.good'",
-        &config.remote_user,
-        &config.remote_host,
-        user_id,
-        &config.remote_user
+    let remote_cmd = format!(
+        "sudo diff -urN /home/{}/vim.learn /home/{}/vim.good",
+        remote_shell_quote(&user_id),
+        remote_shell_quote(&config.remote_user)
     );
 
-    let result = Command::new("sh")
-        .arg("-c")
-        .arg(&command_str)
-        .output();
+    let result = run_ssh(&config.remote_user, &config.remote_host, &remote_cmd);
 
     match result {
         Ok(output) => {
@@ -128,18 +121,13 @@ pub async fn copy_vi_hw(
         return HttpResponse::Forbidden().json(json!({ "error": "Permission denied" }));
     }
 
-    let command_str = format!(
-        "ssh -t {}@{} '/home/{}/copy_vim.sh {}'",
-        &config.remote_user,
-        &config.remote_host,
-        &config.remote_user,
-        user_id,
+    let remote_cmd = format!(
+        "/home/{}/copy_vim.sh {}",
+        config.remote_user,
+        remote_shell_quote(&user_id)
     );
 
-    let result = Command::new("sh")
-        .arg("-c")
-        .arg(&command_str)
-        .output();
+    let result = run_ssh(&config.remote_user, &config.remote_host, &remote_cmd);
 
     match result {
         Ok(output) => {
@@ -158,6 +146,42 @@ pub async fn copy_vi_hw(
     }
 }
 
+
+/// Quote a value as a single literal argument for the *remote* login shell.
+///
+/// ssh does not run a shell locally, but it concatenates the remaining argv
+/// entries with spaces and hands the result to the remote login shell. Any
+/// value interpolated into the remote command line must therefore still be
+/// quoted for that shell. Single-quote wrapping with `'\''` escaping is safe
+/// for arbitrary content, including spaces, double quotes, backticks and
+/// `$(...)` substitutions.
+fn remote_shell_quote(arg: &str) -> String {
+    let mut quoted = String::with_capacity(arg.len() + 2);
+    quoted.push('\'');
+    for ch in arg.chars() {
+        if ch == '\'' {
+            quoted.push_str("'\\''");
+        } else {
+            quoted.push(ch);
+        }
+    }
+    quoted.push('\'');
+    quoted
+}
+
+/// Run `remote_cmd` on the remote host via `ssh -t`, using an argv array
+/// instead of `sh -c "..."` so that no local shell ever parses the command.
+fn run_ssh(
+    remote_user: &str,
+    remote_host: &str,
+    remote_cmd: &str,
+) -> std::io::Result<std::process::Output> {
+    Command::new("ssh")
+        .arg("-t")
+        .arg(format!("{}@{}", remote_user, remote_host))
+        .arg(remote_cmd)
+        .output()
+}
 
 /// Helper function to generate a random, URL-safe string of a given length.
 fn generate_password(length: usize) -> String {
