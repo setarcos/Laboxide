@@ -62,8 +62,8 @@ pub async fn upload_course_file(
             let mut f = File::create(&file_path).unwrap();
             f.write_all(&file_bytes).unwrap();
 
-            // Save metadata to DB
-            match db::add_course_file(&db_pool, &fname, &finfo, course_id).await {
+            // Save metadata to DB (same filename overwrites the previous entry)
+            match db::upsert_course_file(&db_pool, &fname, &finfo, course_id).await {
                 Ok(record) => HttpResponse::Ok().json(record),
                 Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
             }

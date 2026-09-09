@@ -772,26 +772,73 @@ pub async fn delete_schedule(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::E
 }
 
 // Operations for coursefiles
-pub async fn add_course_file(
+pub async fn upsert_course_file(
     pool: &SqlitePool,
     fname: &str,
     finfo: &str,
     course_id: i64,
 ) -> Result<CourseFile, sqlx::Error> {
-    let rec = sqlx::query_as!(
+    // Overwrite semantics: re-uploading a file whose name already exists in this
+    // course updates the existing record (description) instead of inserting a
+    // duplicate. The physical file is overwritten by the handler beforehand.
+    let mut tx = pool.begin().await?;
+
+    let existing = sqlx::query_as!(
         CourseFile,
-        r#"
-        INSERT INTO course_files (fname, finfo, course_id)
-        VALUES (?1, ?2, ?3)
-        RETURNING id, fname, finfo, course_id
-        "#,
-        fname,
-        finfo,
-        course_id
+        r#"SELECT id, fname, finfo, course_id FROM course_files
+        WHERE course_id = ?1 AND fname = ?2
+        ORDER BY id LIMIT 1"#,
+        course_id,
+        fname
     )
-    .fetch_one(pool)
+    .fetch_optional(&mut *tx)
     .await?;
 
+    let rec = match existing {
+        Some(old) => {
+            let updated = sqlx::query_as!(
+                CourseFile,
+                r#"
+                UPDATE course_files SET finfo = ?1
+                WHERE id = ?2
+                RETURNING id, fname, finfo, course_id
+                "#,
+                finfo,
+                old.id
+            )
+            .fetch_one(&mut *tx)
+            .await?;
+            // Clean up duplicate rows that may have been created before
+            // this overwrite rule existed.
+            sqlx::query!(
+                r#"DELETE FROM course_files
+                WHERE course_id = ?1 AND fname = ?2 AND id != ?3"#,
+                course_id,
+                fname,
+                old.id
+            )
+            .execute(&mut *tx)
+            .await?;
+            updated
+        }
+        None => {
+            sqlx::query_as!(
+                CourseFile,
+                r#"
+                INSERT INTO course_files (fname, finfo, course_id)
+                VALUES (?1, ?2, ?3)
+                RETURNING id, fname, finfo, course_id
+                "#,
+                fname,
+                finfo,
+                course_id
+            )
+            .fetch_one(&mut *tx)
+            .await?
+        }
+    };
+
+    tx.commit().await?;
     Ok(rec)
 }
 
