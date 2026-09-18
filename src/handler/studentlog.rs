@@ -147,7 +147,13 @@ pub struct GetLogParams {
 async fn default_student_log(
     pool: web::Data<SqlitePool>,
     query: web::Query<GetLogParams>,
+    session: Session,
 ) -> impl Responder {
+    // The default log contains the caller's own seat/room, so only the student
+    // themselves may request it; ignore any stu_id pointing at someone else.
+    if let Err(err) = check_stu_id(&session, &query.stu_id) {
+        return err;
+    }
     match db::get_default_log(&pool, &query.stu_id, query.subcourse_id).await {
         Ok(log) => HttpResponse::Ok().json(log),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
