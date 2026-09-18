@@ -117,7 +117,7 @@ pub async fn check_meeting_perm(
     match db::get_meeting_agenda_by_id(db_pool, agenda_id).await {
         Ok(agenda) => {
             if (agenda.confirm == 1) || (agenda.userid != user) {
-                return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })))
+                return Err(HttpResponse::Forbidden().json(json!({ "error": "Unauthorized" })))
             }
             return Ok(())
         },

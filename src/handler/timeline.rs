@@ -79,11 +79,11 @@ pub async fn create_timeline(
     }
     if let (Some(stu_id), Some(schedule_id)) = (&stu_id, schedule_id) {
         if (permission & PERMISSION_TEACHER == 0) && stu_id != &user_id {
-            return HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" }));
+            return HttpResponse::Forbidden().json(json!({ "error": "Unauthorized" }));
         }
         if let Ok(count) = db::count_student_timeline_entries(&db_pool, &stu_id, schedule_id).await {
             if count > 100 {
-                return HttpResponse::Unauthorized().json(json!({ "error": "Too many entries." }));
+                return HttpResponse::Forbidden().json(json!({ "error": "Too many entries." }));
             }
         }
     } else {
@@ -175,16 +175,47 @@ async fn check_timeline_permission(
     if is_student {
         if let Ok(Some(log)) = db::get_student_log_by_schedule(&db_pool, &timeline.stu_id, timeline.schedule_id).await {
             if log.confirm == 1 {
-                return Err(HttpResponse::Unauthorized().json(json!({ "error": "Can't delete after confirmation." })));
+                return Err(HttpResponse::Forbidden().json(json!({ "error": "Can't delete after confirmation." })));
             }
         }
     }
 
     if !(is_student || is_teacher || is_admin) {
-        return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })));
+        return Err(HttpResponse::Forbidden().json(json!({ "error": "Unauthorized" })));
     }
 
     Ok(timeline)
+}
+
+/// Read access to a timeline entry mirrors `list_timelines_by_student`:
+/// the student themselves, the teacher who recorded the entry (tea_id), or the
+/// teacher of the subcourse the entry belongs to.
+async fn check_timeline_read_perm(
+    db_pool: &SqlitePool,
+    id: i64,
+    session: &Session,
+) -> Result<StudentTimeline, HttpResponse> {
+    let timeline = db::get_timeline_by_id(db_pool, id).await.map_err(|e| {
+        HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))
+    })?;
+
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
+    if permission & PERMISSION_ADMIN != 0 {
+        return Ok(timeline);
+    }
+
+    let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
+    if user_id == timeline.stu_id || user_id == timeline.tea_id {
+        return Ok(timeline);
+    }
+
+    match db::get_subcourse_by_id(db_pool, timeline.subcourse_id).await {
+        Ok(subcourse) if permission & PERMISSION_TEACHER != 0 && user_id == subcourse.tea_id => {
+            Ok(timeline)
+        }
+        Ok(_) => Err(HttpResponse::Forbidden().json(json!({ "error": "Unauthorized" }))),
+        Err(e) => Err(HttpResponse::InternalServerError().json(json!({ "error": e.to_string() }))),
+    }
 }
 
 #[delete("/timeline/{id}")]
@@ -238,7 +269,7 @@ pub async fn list_timelines_by_student(
         tea_id = user_id.clone();
     }
     if (permission & PERMISSION_STUDENT != 0) && user_id != stu_id {
-        return HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" }));
+        return HttpResponse::Forbidden().json(json!({ "error": "Unauthorized" }));
     }
     match db::list_timelines_by_student(&db_pool, subcourse_id, &stu_id, &tea_id).await {
         Ok(items) => HttpResponse::Ok().json(items),
@@ -250,20 +281,24 @@ pub async fn list_timelines_by_student(
 pub async fn download_timeline_file(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
     req: HttpRequest,
 ) -> impl Responder {
     let id = path.into_inner();
 
-    match db::get_timeline_by_id(&db_pool, id).await {
-        Ok(entry) if entry.notetype == 1 => {
-            let file_path = format!("uploads/coursetl/{}/{}/{}", entry.subcourse_id, entry.stu_id, entry.note);
-            match NamedFile::open_async(&file_path).await {
-                Ok(file) => file.into_response(&req),
-                Err(_) => HttpResponse::NotFound().body("File not found"),
-            }
-        }
-        Ok(_) => HttpResponse::BadRequest().json(json!({"error": "This entry does not contain a file."})),
-        Err(e) => HttpResponse::InternalServerError().json(json!({"error": e.to_string()})),
+    let entry = match check_timeline_read_perm(&db_pool, id, &session).await {
+        Ok(entry) => entry,
+        Err(resp) => return resp,
+    };
+
+    if entry.notetype != 1 {
+        return HttpResponse::BadRequest().json(json!({"error": "This entry does not contain a file."}));
+    }
+
+    let file_path = format!("uploads/coursetl/{}/{}/{}", entry.subcourse_id, entry.stu_id, entry.note);
+    match NamedFile::open_async(&file_path).await {
+        Ok(file) => file.into_response(&req),
+        Err(_) => HttpResponse::NotFound().body("File not found"),
     }
 }
 

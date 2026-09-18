@@ -21,8 +21,11 @@ pub async fn add_linux_user(
     let user_id = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
     let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
 
-    if user_id.is_empty() || permission & PERMISSION_LINUX == 0 {
-        return HttpResponse::Unauthorized().json(json!({ "error": "Permission denied!" }));
+    if user_id.is_empty() {
+        return HttpResponse::Unauthorized().json(json!({ "error": "Not authenticated" }));
+    }
+    if permission & PERMISSION_LINUX == 0 {
+        return HttpResponse::Forbidden().json(json!({ "error": "Permission denied!" }));
     }
     let sshkey = &payload.sshkey;
 

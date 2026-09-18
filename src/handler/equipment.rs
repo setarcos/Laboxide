@@ -59,7 +59,7 @@ pub async fn check_equip_perm(
     match db::get_equipment_by_id(db_pool, equip_id).await {
         Ok(equip) => {
             if equip.owner_id != user {
-                return Err(HttpResponse::Unauthorized().json(json!({ "error": "Unauthorized" })))
+                return Err(HttpResponse::Forbidden().json(json!({ "error": "Unauthorized" })))
             }
             return Ok(())
         },
