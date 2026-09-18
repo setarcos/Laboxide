@@ -42,8 +42,12 @@ pub async fn list_equipments(
 pub async fn get_equipment(
     db_pool: web::Data<SqlitePool>,
     path: web::Path<i64>,
+    session: Session,
 ) -> impl Responder {
     let id = path.into_inner();
+    if let Err(e) = check_equip_perm(&db_pool, &session, id).await {
+        return e;
+    }
     match db::get_equipment_by_id(&db_pool, id).await {
         Ok(equipment) => HttpResponse::Ok().json(equipment),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
