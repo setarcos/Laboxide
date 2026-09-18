@@ -146,9 +146,14 @@ pub async fn update_meeting_agenda(
 #[delete("/meeting_agenda/{id}")]
 pub async fn delete_meeting_agenda(
     db_pool: web::Data<SqlitePool>,
+    session: Session,
     path: web::Path<i64>,
 ) -> impl Responder {
-    match db::delete_meeting_agenda(&db_pool, path.into_inner()).await {
+    let id = path.into_inner();
+    if let Err(e) = check_meeting_perm(&db_pool, &session, id).await {
+        return e;
+    }
+    match db::delete_meeting_agenda(&db_pool, id).await {
         Ok(true) => HttpResponse::Ok().json(json!({ "message": "Meeting agenda deleted" })),
         Ok(false) => HttpResponse::NotFound().json(json!({ "error": "Meeting agenda not found" })),
         Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
