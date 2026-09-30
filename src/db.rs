@@ -2,7 +2,7 @@ use actix_web::Result;
 use sqlx::{Pool, Sqlite, SqlitePool};
 use crate::models::{User, Semester, Course, Labroom, Equipment, EquipmentHistory};
 use crate::config::Config;
-use crate::models::{SubCourse, SubCourseWithName, Student, CourseSchedule, CourseFile};
+use crate::models::{SubCourse, SubCourseWithName, SubCourseWithSemester, Student, CourseSchedule, CourseFile};
 use crate::models::{StudentLog, SubSchedule, StudentTimeline};
 use crate::models::{MeetingRoom, MeetingAgenda};
 use chrono::{Local, Duration, NaiveDateTime, Datelike};
@@ -665,6 +665,58 @@ pub async fn list_teacher_subcourses(
         // No active semester
         Ok(vec![])
     }
+}
+
+/// Every teaching class a student (identified by `stu_id` in `students`) has
+/// joined, across all semesters, newest semester first. When `tea_id` is given,
+/// only classes taught by that teacher are returned.
+pub async fn list_student_subcourses_all(
+    pool: &SqlitePool,
+    stu_id: &str,
+    tea_id: Option<&str>,
+) -> Result<Vec<SubCourseWithSemester>, sqlx::Error> {
+    let subcourses = if let Some(tea_id) = tea_id {
+        sqlx::query_as!(
+            SubCourseWithSemester,
+            r#"
+            SELECT s.id, s.weekday, r.room AS room_name, s.tea_name, s.tea_id,
+                   s.year_id, s.stu_limit, s.course_id, s.lag_week,
+                   c.name AS course_name, sem.name AS semester_name
+            FROM subcourses s
+            JOIN students sg ON sg.subcourse_id = s.id
+            JOIN courses c ON s.course_id = c.id
+            JOIN labrooms r ON s.room_id = r.id
+            JOIN semesters sem ON sem.id = s.year_id
+            WHERE sg.stu_id = ?1 AND s.tea_id = ?2
+            ORDER BY sem.start DESC, s.weekday
+            "#,
+            stu_id,
+            tea_id
+        )
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query_as!(
+            SubCourseWithSemester,
+            r#"
+            SELECT s.id, s.weekday, r.room AS room_name, s.tea_name, s.tea_id,
+                   s.year_id, s.stu_limit, s.course_id, s.lag_week,
+                   c.name AS course_name, sem.name AS semester_name
+            FROM subcourses s
+            JOIN students sg ON sg.subcourse_id = s.id
+            JOIN courses c ON s.course_id = c.id
+            JOIN labrooms r ON s.room_id = r.id
+            JOIN semesters sem ON sem.id = s.year_id
+            WHERE sg.stu_id = ?1
+            ORDER BY sem.start DESC, s.weekday
+            "#,
+            stu_id
+        )
+        .fetch_all(pool)
+        .await?
+    };
+
+    Ok(subcourses)
 }
 
 // CourseSchedule operations

@@ -255,6 +255,45 @@ pub async fn list_timelines_by_schedule(
     }
 }
 
+/// Teaching classes a student may switch between in the timeline view.
+/// The student can only browse their own list; a teacher only sees the classes
+/// they are responsible for; admins see everything.
+#[get("/timeline/courses/{stu_id}")]
+pub async fn list_student_courses(
+    db_pool: web::Data<SqlitePool>,
+    path: web::Path<String>,
+    session: Session,
+) -> impl Responder {
+    let stu_id = path.into_inner();
+    let user_id: String = session.get::<String>("user_id").ok().flatten().unwrap_or_default();
+    let permission: i64 = session.get::<i64>("permissions").ok().flatten().unwrap_or(0);
+
+    let is_teacher = permission & PERMISSION_TEACHER != 0;
+    let is_admin = permission & PERMISSION_ADMIN != 0;
+
+    if !is_teacher && !is_admin && user_id != stu_id {
+        return HttpResponse::Forbidden().json(json!({ "error": "Unauthorized" }));
+    }
+
+    let tea_filter = if is_teacher && !is_admin {
+        Some(user_id.as_str())
+    } else {
+        None
+    };
+
+    match db::list_student_subcourses_all(&db_pool, &stu_id, tea_filter).await {
+        Ok(mut items) => {
+            if !is_teacher {
+                for item in &mut items {
+                    item.tea_id = String::new();
+                }
+            }
+            HttpResponse::Ok().json(items)
+        }
+        Err(e) => HttpResponse::InternalServerError().json(json!({ "error": e.to_string() })),
+    }
+}
+
 #[get("/timeline/student/{subcourse_id}/{stu_id}")]
 pub async fn list_timelines_by_student(
     db_pool: web::Data<SqlitePool>,
@@ -305,6 +344,7 @@ pub async fn download_timeline_file(
 pub fn init_timeline_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_timeline)
        .service(list_timelines_by_student)
+       .service(list_student_courses)
        .service(download_timeline_file)
        .service(delete_timeline);
 }

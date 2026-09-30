@@ -201,6 +201,71 @@
         assert_eq!(again.note, "做完了");
     }
 
+    // ---- timeline course switcher ----
+
+    #[tokio::test]
+    async fn student_subcourse_options_span_semesters_and_filter_by_teacher() {
+        let pool = test_pool().await;
+        let (sem_a, course, room, sub_a) = seed_course_base(&pool, 0, 40).await;
+
+        // A newer semester, same course but a different teacher.
+        let sem_b = add_semester(
+            &pool,
+            Semester {
+                id: 0,
+                name: "2026 春".into(),
+                start: sem_a.start + TimeDelta::days(200),
+                end: sem_a.end + TimeDelta::days(200),
+            },
+        )
+        .await
+        .unwrap();
+        let sub_b = add_subcourse(
+            &pool,
+            SubCourse {
+                id: 0,
+                weekday: 3,
+                room_id: room.id,
+                tea_name: "李老师".into(),
+                tea_id: "T002".into(),
+                year_id: sem_b.id,
+                stu_limit: 40,
+                course_id: course.id,
+                lag_week: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+        add_student_to_group(&pool, "S1", "学生一", sub_a.id).await.unwrap();
+        add_student_to_group(&pool, "S1", "学生一", sub_b.id).await.unwrap();
+
+        let all = list_student_subcourses_all(&pool, "S1", None).await.unwrap();
+        assert_eq!(all.len(), 2);
+        // newest semester first
+        assert_eq!(all[0].id, sub_b.id);
+        assert_eq!(all[0].semester_name, "2026 春");
+        assert_eq!(all[1].id, sub_a.id);
+        assert_eq!(all[1].semester_name, sem_a.name);
+
+        // teacher filter keeps only the classes they own
+        let own = list_student_subcourses_all(&pool, "S1", Some("T001"))
+            .await
+            .unwrap();
+        assert_eq!(own.len(), 1);
+        assert_eq!(own[0].id, sub_a.id);
+        assert!(list_student_subcourses_all(&pool, "S1", Some("T999"))
+            .await
+            .unwrap()
+            .is_empty());
+
+        // another student has no classes
+        assert!(list_student_subcourses_all(&pool, "S2", None)
+            .await
+            .unwrap()
+            .is_empty());
+    }
+
     // ---- regression: update_student_log (fixed duplicated fin_time SET) ----
 
     #[tokio::test]
